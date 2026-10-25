@@ -59,13 +59,40 @@ def price_text(s):
 
 def site_line(s):
     bl = best_line(s); g = s.get("gasline"); c = comm(s)
-    sc = (f"overall **{ov(s)}** (infra {s.get('infra_score', s.get('score'))} · community {c['score']}: reg {c['regulatory']['score']} / sentiment {c['sentiment']['score']})"
+    sc = (f"overall **{ov(s)}** (infra {s.get('infra_score', s.get('score'))} · community {c['score']}: laws {c['laws']['score']} · news {c['news']['score']} · EDC {c['edc']['score']})"
           if c else f"score **{ov(s)}**")
     return (f"**{s['name']}** — {s['city']}, {s['county']} Co · {s['acres']:,.0f} ac · {sc} · {ann_text(s)}"
             + (f" · {bl['kv']:.0f} kV line {bl['mi']:.1f} mi" if bl else "")
             + (f" · gas pipeline {g['mi']:.1f} mi" if g else "")
             + f" · price {price_text(s)}"
             + (" · CERTIFIED" if s.get("certified") else "") + f"  \n  [{s['url']}]({s['url']})")
+
+LAWST = {"by_right": "data centers allowed by right", "cup": "conditional/special use permit required", "proposed": "data-center rules proposed (pending)",
+         "not_defined": "data centers not defined in the zoning code", "prohibited": "prohibited or under moratorium", "unknown": "not determined from published sources"}
+
+def _cite(c):
+    return f"[{c.get('title') or c['url']}]({c['url']})" + (f" ({c['check']})" if c.get("check") else "")
+
+def sub_findings(s, I):
+    """Three cited sub-findings: laws & zoning, local news, EDC."""
+    c = comm(s); L, N, E = c["laws"], c["news"], c["edc"]
+    cites = L.get("citations") or [x for sec in L.get("secondary") or [] for x in sec.get("citations") or []]
+    law = (f"Laws & zoning {L['score']}: {L.get('jurisdiction')} — {LAWST.get(L.get('status'), L.get('status'))}"
+           + (f"; site zoned {L['site_zoning']}" if L.get("site_zoning") else "") + (f". {L['summary']}" if L.get("summary") else "")
+           + "".join(f"; {sec['jurisdiction']}: {LAWST.get(sec['status'], sec['status'])}" for sec in L.get("secondary") or [])
+           + (" — " + "; ".join(_cite(x) for x in cites[:2]) if cites else " — no citable source found"))
+    items = [I[i] for i in N.get("items", []) if i in I]
+    news = (f"Local news {N['score']}: " + ("; ".join(f"[{i.get('tag','')}] {i.get('date') or 'n.d.'} [{i['title']}]({i['url']})" for i in items[:3])
+            + (f" (+{len(items)-3} more)" if len(items) > 3 else "") if items else f"No local news found ({len(c.get('searched') or [])} searches run)"))
+    if E.get("reviewed"):
+        flags = [x for x, ok in (("markets to data-center/large-load users", E.get("markets_data_centers")), ("markets to tech users", E.get("markets_tech")),
+                                 ("published DC policy", E.get("dc_policy"))) if ok]
+        inc = ", ".join(i["type"] for i in E.get("incentives") or [])
+        edc = (f"EDC {E['score']}: [{E.get('org')}]({E.get('url')}) — " + ("; ".join(flags) if flags else "no data-center or tech marketing found")
+               + (f"; incentives: {inc}" if inc else "; no incentives listed") + f" ({E.get('pages_reviewed')} pages reviewed {E.get('fetched')})")
+    else:
+        edc = f"EDC {E['score']}: {E.get('org') or 'no EDC identified'} — {E.get('status') or 'not reviewed'}" + (f" ({E['url']})" if E.get("url") else "")
+    return [law, news, edc]
 
 def main():
     ap = argparse.ArgumentParser()
@@ -92,7 +119,7 @@ def main():
                 pa, sa = (P[i].get("annexation") or {}).get("status"), (S[i].get("annexation") or {}).get("status")
                 if pa and pa != sa: diffs.append(f"annexation: {pa} → {sa}")
                 pc, sc = comm(P[i]), comm(S[i])
-                for k in ("regulatory", "sentiment"):
+                for k in ("laws", "news", "edc"):
                     if pc.get(k) and sc.get(k) and pc[k]["score"] != sc[k]["score"]: diffs.append(f"{k}: {pc[k]['score']} → {sc[k]['score']}")
                 if P[i].get("lois_modified") != S[i].get("lois_modified"): diffs.append("listing updated " + str(S[i].get("lois_modified", ""))[:10])
                 if diffs: changed.append((S[i], diffs))
@@ -120,8 +147,8 @@ def main():
     if removed: md += ["## Removed / no longer listed", ""] + [f"- {s['name']} — {s['city']} ({s['acres']:,.0f} ac)" for s in removed] + [""]
     if "weights" in cur:
         w = cur["weights"]
-        md += [f"_Overall = {w['overall']['infrastructure']:.0%} infrastructure + {w['overall']['community']:.0%} community/regulatory "
-               f"(community = {w['community']['regulatory']:.0%} regulatory + {w['community']['sentiment']:.0%} sentiment)._", ""]
+        md += [f"_Overall = {w['overall']['infrastructure']:.0%} infrastructure + {w['overall']['community']:.0%} community "
+               f"(community = {w['community']['laws']:.0%} laws & zoning + {w['community']['news']:.0%} local news + {w['community']['edc']:.0%} EDC)._", ""]
     md += ["## New regulatory & community issues (first seen this week, dated within 60 days)", ""]
     for i in new_issues[:30]:
         n = len(affected.get(i["id"], []))
@@ -137,8 +164,7 @@ def main():
         md.append(f"{n}. {site_line(s)}")
         c = comm(s)
         if c:
-            md.append("   - Regulatory: " + "; ".join(c["regulatory"]["why"]))
-            md.append("   - Sentiment: " + "; ".join(c["sentiment"]["why"][:4]))
+            for ln in sub_findings(s, I): md.append("   - " + ln)
         pp = s.get("price") or {}
         if pp.get("basis") or pp.get("flags"):
             md.append("   - Price: " + price_text(s) + (f" ({pp['basis']})" if pp.get("basis") else "") + "".join(f"; ⚠ {f}" for f in pp.get("flags") or []))

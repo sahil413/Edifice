@@ -36,6 +36,7 @@ jobs:
         run: |
           pip install -r pipeline/requirements.txt
           npm install -g staticrypt@3
+          command -v pdftotext || sudo apt-get install -y -q poppler-utils   # PDF ordinances / agendas
 
       - name: Check secret
         run: test -n "$SITES_PASSWORD" || { echo "SITES_PASSWORD repo secret is missing"; exit 1; }
@@ -53,6 +54,7 @@ jobs:
           python3 pipeline/crypt.py dec pipeline/contacts.enc "$RUNNER_TEMP/contacts.json"
           if [ -f pipeline/state.enc ]; then python3 pipeline/crypt.py dec pipeline/state.enc "$RUNNER_TEMP/state.json"; fi
           python3 pipeline/crypt.py dec pipeline/issues.enc "$RUNNER_TEMP/issues.json"
+          python3 pipeline/crypt.py dec pipeline/local_review.enc "$RUNNER_TEMP/local_review.json"
 
       - name: Scrape
         run: |
@@ -62,16 +64,18 @@ jobs:
             --contacts "$RUNNER_TEMP/contacts.json" \
             --state "$RUNNER_TEMP/state.json"
 
-      # Community/regulatory score + annexation status. News queries are cached for 6 days
-      # (--news-max-age-h 144), so sentiment refreshes at least weekly; TIGER boundaries and
-      # hand-verified regulatory items (issues.enc) are applied every day.
-      - name: Community / regulatory + annexation
+      # Community score (laws & zoning 45%, local news 30%, EDC 25%) + annexation status.
+      # News queries are cached 6 days (--news-max-age-h 144); EDC site crawls and law-citation
+      # checks are cached 7 days under geocache/community/local_review, so they refresh weekly.
+      # TIGER boundaries and hand-verified items (issues.enc, local_review.enc) apply every day.
+      - name: Community (laws, news, EDC) + annexation
         run: |
           python3 -W ignore pipeline/community.py \
             --data "$RUNNER_TEMP/data/sites.json" \
             --cache-dir "$RUNNER_TEMP/geocache/community" \
             --curated "$RUNNER_TEMP/issues.json" \
             --state "$RUNNER_TEMP/state.json" \
+            --local-review "$RUNNER_TEMP/local_review.json" \
             --news-max-age-h 144
 
       - name: Render + encrypt (StaticCrypt)
@@ -91,4 +95,4 @@ jobs:
 
       - name: Scrub plaintext
         if: always()
-        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json"
+        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json"

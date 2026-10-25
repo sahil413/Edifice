@@ -18,6 +18,9 @@ from concurrent.futures import ThreadPoolExecutor
 import argparse, datetime as dt, hashlib, html, json, os, re, sys, time, urllib.parse
 import xml.etree.ElementTree as ET
 import requests
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import local_review as LR
+LAWS, EDC = {}, {}
 from shapely.geometry import shape, Point
 from shapely.ops import transform as shp_transform  # noqa
 from pyproj import Transformer
@@ -30,20 +33,25 @@ TO_M = Transformer.from_crs(4326, 5070, always_xy=True).transform
 M_PER_MI = 1609.344
 
 WEIGHTS = {"infrastructure": 0.6, "community": 0.4}
-COMMUNITY_WEIGHTS = {"regulatory": 0.6, "sentiment": 0.4}
+COMMUNITY_WEIGHTS = {"laws": 0.45, "news": 0.30, "edc": 0.25}
 COMMUNITY_RULES = {
-    "regulatory": ("Starts at 100. The governing jurisdiction is the city if the pin is inside city limits, "
-                   "otherwise the county (the nearby city counts as secondary if within 3 mi, since it could annex). "
-                   "Governing jurisdiction, latest status: active/extended moratorium or ban −60; proposed/drafting "
-                   "moratorium, ban or ballot measure −30; moratorium lifted/expired −5; data-center zoning rules adopted −10 "
-                   "(proposed −5). Secondary jurisdiction: −25 / −12 / −2; rules −2 (proposed −1). A failed moratorium "
-                   "motion scores 0. Statewide: enacted restriction −15, pending bill/proposal −5 (curated). Floor 0. "
-                   "Hand-verified items marked final set a jurisdiction's status; otherwise the latest dated news item does."),
-    "sentiment": ("Starts at 70. Each article/hearing/petition about data centers, large loads or utility rate cases in "
-                  "the site's city or county: negative −10, positive +6, neutral 0, × recency (≤6 mo 1.0, ≤12 mo 0.6, "
-                  "≤24 mo 0.3, older 0) × jurisdiction (governing 1.0, secondary 0.5). Negative total capped at −60. "
-                  "Tags come from the hand-verified file where present, otherwise keyword rules on the headline/summary."),
-    "community": "Community = 0.6 × Regulatory + 0.4 × Sentiment.",
+    "laws": ("Laws & zoning. Starts at 100. The governing jurisdiction is the city if the pin is inside city limits, "
+             "otherwise the county (the nearby city counts as secondary if within 3 mi, since it could annex). "
+             "Governing jurisdiction, latest status: active/extended moratorium or ban −60; proposed/drafting "
+             "moratorium, ban or ballot measure −30; moratorium lifted/expired −5; data-center zoning rules adopted −10 "
+             "(proposed −5). Secondary jurisdiction: −25 / −12 / −2; rules −2 (proposed −1). A failed moratorium "
+             "motion scores 0. Statewide: enacted restriction −15, pending bill/proposal −5. Zoning code status of the "
+             "governing jurisdiction (hand-verified, cited): allowed by right 0; CUP/SUP required −10; rules being drafted −5; "
+             "not defined in code −5; no provision found −5; prohibited −50. Floor 0."),
+    "news": ("Local news. Only items about the site's own city or county count (the headline names the place, or the summary "
+             "names it under a data-center/large-load headline); statewide and national items are excluded. Starts at 70: "
+             "negative −10, positive +6, neutral 0, × recency (≤6 mo 1.0, ≤12 mo 0.6, ≤24 mo 0.3, older 0) × jurisdiction "
+             "(governing 1.0, secondary 0.5). Negative total capped at −60. No qualifying items → 70 and \"No local news found\"."),
+    "edc": ("Economic development. The local EDC/EDO website (homepage + up to 8 linked pages, refreshed weekly): reviewed → base 50; "
+            "+15 markets to data-center/large-load users; +10 markets to tech/advanced industry; +5 per incentive type listed "
+            "(IRBs, tax abatements, Opportunity Zones, PEAK/HPIP, TIF/STAR, …; max +15); +10 publishes data-center/large-load policy "
+            "information. Site not reachable or none identified → 40. Every finding links the page it was read on."),
+    "community": "Community = 0.45 × Laws & zoning + 0.30 × Local news + 0.25 × EDC.",
     "overall": "Overall = 0.6 × Infrastructure + 0.4 × Community.",
 }
 STATUS = {}
@@ -508,24 +516,63 @@ def score_site(site, by_jur, today):
         elif i.get("state_effect") == "pending_restriction": R -= 5; why_r.append(f"−5: statewide proposal — {i['title']}")
     R = max(0.0, R)
     if not why_r: why_r = ["No moratorium, ban or restrictive rule found for " + ", ".join(j.split(':',1)[1].title() + (' County' if j.startswith('county:') else '') for j in jurs)]
-    Sv, neg, why_s = 70.0, 0.0, []
+    # ---- Laws & zoning: code status of the governing jurisdiction (hand-verified, cited)
+    law = LAWS.get(gov) or {}
+    lst = law.get("status") or "unknown"
+    adj, lbl = LR.LAW_ADJ.get(lst, LR.LAW_ADJ["unknown"])
+    nm_gov = gov.split(":", 1)[1].title() + (" County" if gov.startswith("county:") else "")
+    R = max(0.0, R + adj); why_r.append(f"{'−' if adj < 0 else '+'}{abs(adj)}: {nm_gov} zoning — {lbl}")
+    laws_out = {"score": round(R), "why": why_r, "status": lst, "jurisdiction": gov,
+                "districts": law.get("districts", ""), "summary": law.get("summary", ""), "site_zoning": site.get("zoning") or "",
+                "citations": [c for c in law.get("citations", [])],
+                "secondary": [{"jurisdiction": j, "status": (LAWS.get(j) or {}).get("status", "unknown"), "summary": (LAWS.get(j) or {}).get("summary", ""),
+                               "citations": (LAWS.get(j) or {}).get("citations", [])} for j in sec if j in LAWS]}
+    # ---- Local news: only items about this site's own city/county
+    Sv, neg, why_s, local = 70.0, 0.0, [], []
     for j in jurs:
         w_j = 1.0 if j == gov else 0.5
         for i in by_jur.get(j, []):
-            if i["kind"] not in ("sentiment", "rate case"): continue
+            if i["kind"] not in ("sentiment", "rate case") or not is_local(i, j): continue
+            local.append(i["id"])
             w = recency(i.get("date"), today) * w_j
             if i["tag"] == "negative": neg += 10 * w
             elif i["tag"] == "positive": Sv += 6 * w
     neg = min(neg, 60); Sv = max(0.0, min(100.0, Sv - neg))
-    cnt = lambda t: sum(1 for j in jurs for i in by_jur.get(j, []) if i["kind"] in ("sentiment", "rate case") and i["tag"] == t)
-    why_s.append(f"{cnt('negative')} negative, {cnt('positive')} positive, {cnt('neutral')} neutral local items (governing: {gov}{'; secondary: ' + ', '.join(sec) if sec else ''})")
-    C = COMMUNITY_WEIGHTS["regulatory"] * R + COMMUNITY_WEIGHTS["sentiment"] * Sv
-    issue_ids = [i["id"] for j in jurs + ["state"] for i in by_jur.get(j, [])]
-    site["community"] = {"score": round(C), "regulatory": {"score": round(R), "why": why_r}, "sentiment": {"score": round(Sv), "why": why_s},
-                         "jurisdictions": {"governing": gov, "secondary": sec}, "issues": issue_ids,
-                         "local_issue_count": sum(1 for j in jurs for i in by_jur.get(j, []) if i["kind"] != "annexation")}
+    li = [i for j in jurs for i in by_jur.get(j, []) if i["id"] in local]
+    cnt = lambda t: sum(1 for i in li if i["tag"] == t)
+    if li: why_s.append(f"{cnt('negative')} negative, {cnt('positive')} positive, {cnt('neutral')} neutral local items (governing: {gov}{'; secondary: ' + ', '.join(sec) if sec else ''})")
+    else: why_s.append("No local news found — score held at the neutral 70")
+    # ---- EDC
+    er = EDC.get(gov) or next((EDC[j] for j in sec if j in EDC), None)
+    E, why_e = LR.edc_score(er)
+    edc_out = {"score": E, "why": why_e}
+    if er:
+        edc_out.update({k: er.get(k) for k in ("org", "url", "reviewed", "status", "fetched", "pages_reviewed", "pages", "markets_data_centers", "markets_tech", "incentives", "dc_policy")})
+        f = er.get("findings") or {}
+        edc_out["findings"] = {k: (f.get(k) or [])[:3] for k in ("data_center", "tech", "incentive", "policy")}
+        edc_out["jurisdiction"] = gov if gov in EDC else next(j for j in sec if j in EDC)
+    else:
+        edc_out.update({"reviewed": False, "status": "no economic-development organization identified for this jurisdiction"})
+    C = COMMUNITY_WEIGHTS["laws"] * R + COMMUNITY_WEIGHTS["news"] * Sv + COMMUNITY_WEIGHTS["edc"] * E
+    issue_ids = [i["id"] for j in jurs + ["state"] for i in by_jur.get(j, []) if i["kind"] == "regulatory" or i["id"] in local]
+    site["community"] = {"score": round(C), "laws": laws_out, "news": {"score": round(Sv), "why": why_s, "items": [i["id"] for i in li]},
+                         "edc": edc_out, "jurisdictions": {"governing": gov, "secondary": sec}, "issues": issue_ids,
+                         "local_issue_count": len(li)}
     site["infra_score"] = site["score"]
     site["overall"] = round(WEIGHTS["infrastructure"] * site["score"] + WEIGHTS["community"] * C)
+
+PLACE_ALIASES = {"city:kansas city": ["kansas city, kan", "kansas city, kansas", "kck", "wyandotte"], "city:dodge city": ["dodge city"]}
+DC_TOPIC = re.compile(r"data[- ]?cent|hyperscale|large[- ]load|crypto|bitcoin|server|ai campus|tech campus|rate (case|increase|hike)|evergy|moratorium", re.I)
+def is_local(i, j):
+    """True if a news item is about this jurisdiction: its headline names the place, or its summary names it and the headline is on-topic."""
+    if j == "state" or i.get("jurisdiction") == "state": return False
+    if i.get("origin") == "hand-verified": return True
+    kind, name = j.split(":", 1)
+    names = PLACE_ALIASES.get(j) or ([f"{name} county", f"{name} co."] if kind == "county" else [name])
+    t, sm = (i.get("title") or "").lower(), (i.get("summary") or "").lower()
+    rx = re.compile(r"\b(" + "|".join(re.escape(n) for n in names) + r")\b")
+    if rx.search(t): return True
+    return bool(rx.search(sm) and DC_TOPIC.search(t))
 
 # ------------------------------------------------------------------ main
 def main():
@@ -534,6 +581,7 @@ def main():
     ap.add_argument("--cache-dir", default=None, help="cache for public boundaries + news (safe to persist)")
     ap.add_argument("--curated", default=None, help="hand-verified issues JSON (plaintext, decrypted at runtime)")
     ap.add_argument("--state", default=None, help="state JSON (issue first-seen dates); updated in place")
+    ap.add_argument("--local-review", default=None, help="hand-curated laws & zoning + EDC org map (plaintext, decrypted at runtime)")
     ap.add_argument("--news-max-age-h", type=float, default=144, help="re-query news when cache is older than this (default 6 days)")
     args = ap.parse_args()
     D = json.load(open(args.data)); sites = D["sites"]; today = dt.date.today()
@@ -597,6 +645,17 @@ def main():
         i["first_seen"] = seen.setdefault(i["id"], today.isoformat())
     if args.state: json.dump(state, open(args.state, "w"), indent=1)
 
+    global LAWS, EDC
+    jb = {x["id"]: None for x in sites}
+    for x in sites:
+        an = x["annexation"]; c = (x.get("county") or "").lower()
+        if an["status"] == "annexed": jb[x["id"]] = [f"city:{(an['place_base'] or '').lower()}", f"county:{c}"]
+        else: jb[x["id"]] = [f"county:{c}"] + ([f"city:{an['nearest_base'].lower()}"] if an.get("nearest_base") and (an.get("nearest_city_mi") or 99) <= 3 else [])
+    try:
+        EDC, LAWS, st = LR.run(sites, jb, args.local_review, os.path.join(args.cache_dir, "local_review") if args.cache_dir else None)
+        STATUS.update(st)
+    except Exception as e:
+        STATUS["EDC site review"] = {"ok": False, "detail": f"failed: {e!r}"[:200], "url": ""}
     by_jur = {}
     for i in issues: by_jur.setdefault(i["jurisdiction"], []).append(i)
     for v in by_jur.values(): v.sort(key=lambda i: i.get("date") or "", reverse=True)
@@ -610,6 +669,7 @@ def main():
             an["pending"] = True
     sites.sort(key=lambda s: -s["overall"])
     used = {x for s in sites for x in s["community"]["issues"] + s["annexation"]["news"]}
+    D["laws_reviewed"] = len(LAWS); D["edc_reviewed"] = sum(1 for v in EDC.values() if v.get("reviewed"))
     D["issues"] = {i["id"]: i for i in issues if i["id"] in used}
     D["community_rules"] = COMMUNITY_RULES
     D["weights"] = {"overall": WEIGHTS, "community": COMMUNITY_WEIGHTS}
