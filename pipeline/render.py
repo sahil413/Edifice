@@ -44,6 +44,12 @@ def verify(enc_path, data):
     for i in (data.get("issues") or {}).values():
         if len(i.get("title") or "") >= 12: probes.add(i["title"])
         if i.get("summary") and len(i["summary"]) >= 30: probes.add(i["summary"][:60])
+    for r in (data.get("storage") or {}).get("rows", []):
+        if len(r.get("name") or "") >= 8: probes.add(r["name"])
+        if len(r.get("address") or "") >= 8: probes.add(r["address"])
+        for c in r.get("contacts", []):
+            if c.get("email"): probes.add(c["email"])
+    if data.get("storage"): probes |= {"sf_per_capita", "zoning_rules", "own_facility"}
     probes |= {"__DATA__", "score_parts", "lines_by_class", "community_rules", "annexation_counts", "infra_score"}
     leaks = [p for p in probes if p in html]
     if leaks:
@@ -59,8 +65,14 @@ def main():
     ap.add_argument("--password-env", default="EDIFICE_SITES_PASSWORD")
     ap.add_argument("--plain-out", default=None, help="also keep plaintext HTML here (private/gitignored only)")
     ap.add_argument("--no-encrypt", action="store_true")
+    ap.add_argument("--storage", default=None, help="plaintext storage.json (merged into the page as D.storage)")
     a = ap.parse_args()
     data = json.load(open(a.data, encoding="utf-8"))
+    if a.storage and os.path.exists(a.storage):
+        data["storage"] = json.load(open(a.storage, encoding="utf-8"))
+        print(f"[render] merged storage view: {len(data['storage'].get('rows', []))} rows")
+    elif a.storage:
+        print(f"[render] WARNING: --storage {a.storage} not found; storage view will be empty")
     html = build_html(data)
     tmp = tempfile.mkdtemp(prefix="edks_")
     try:

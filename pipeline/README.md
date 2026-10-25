@@ -58,3 +58,47 @@ that only make sense per acre, and suspect acreage are flagged (`price.flags`), 
 acreage is ≥100. A suspect (>20,000) or missing acreage passes only if the certified-sites list or the
 listing text states ≥100 acres; otherwise a suspect value is read as square feet. Dropped listings are
 counted under "100+ acre filter" in the data-source status.
+
+## Storage view (`storage.py`)
+
+The page has a **View** dropdown at the top: *Powered Land* (the table above, the default) and
+*Storage*. Both views use the same StaticCrypt password. `#st-…` links open the Storage view.
+
+`storage.py` covers Wichita, Overland Park, Kansas City KS, Olathe, Topeka and Lawrence. It produces two
+row types:
+
+- **Development land** of 4–12 acres. Anything outside 5–10 acres is flagged.
+- **Existing self-storage facilities** for sale.
+
+Listings come from Crexi's public JSON search and the LOIS/CommercialEdge pages run by the local
+EDCs. Lease-only, under-contract and sold listings are dropped. Single garage or storage-condo units
+are kept apart as format comps and are not scored.
+
+Each row is enriched with these sources:
+
+- **Zoning:** the city's zoning GIS, queried at the listing point. Olathe has no public layer, so
+  the zoning stated in the listing is used. Each city's code rules give the self-storage status:
+  by right, conditional/SUP or not permitted, with the code section cited.
+- **Traffic:** the frontage road from OpenStreetMap and the KDOT AADT within 250 m.
+- **Competition:** OSM `shop=storage_rental` facilities within 3 miles, with estimated NRSF.
+- **Demand:** ACS 5-year tract data for the 3-mile area, plus Census PEP city growth, BPS permits
+  and the nearest lakes and marinas.
+
+Score (0–100) = demand 30 + competition 25 + visibility 15 + zoning 20 + price 10.
+
+Data handling:
+
+- `--cache-dir` holds only area-wide public layers (OSM, Census). It lives in the public
+  actions/cache.
+- Per-listing-point lookups go to `--point-cache-dir`, which is uncached runner temp.
+- The last good listing pull, the first-seen dates and the owner's own facility (counted as
+  supply, never shown as a target) live only in `pipeline/storage_state.enc`.
+- `STORAGE_REUSE_STATE_H=N` reuses a listing pull younger than N hours. CI uses it as a fallback
+  when the live pull fails.
+
+To build locally:
+
+```
+python3 pipeline/storage.py --out private/data/storage.json --state private/storage_state.json --cache-dir private/cache/storage
+STATICRYPT_PASSWORD="$EDIFICE_SITES_PASSWORD" python3 pipeline/render.py --data private/data/sites.json --storage private/data/storage.json
+```

@@ -15,7 +15,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       SITES_PASSWORD: ${{ secrets.SITES_PASSWORD }}
       PASSWORD_ENV: SITES_PASSWORD
@@ -56,6 +56,7 @@ jobs:
           if [ -f pipeline/state.enc ]; then python3 pipeline/crypt.py dec pipeline/state.enc "$RUNNER_TEMP/state.json"; fi
           python3 pipeline/crypt.py dec pipeline/issues.enc "$RUNNER_TEMP/issues.json"
           python3 pipeline/crypt.py dec pipeline/local_review.enc "$RUNNER_TEMP/local_review.json"
+          if [ -f pipeline/storage_state.enc ]; then python3 pipeline/crypt.py dec pipeline/storage_state.enc "$RUNNER_TEMP/storage_state.json"; fi
 
       - name: Scrape
         run: |
@@ -79,21 +80,39 @@ jobs:
             --local-review "$RUNNER_TEMP/local_review.json" \
             --news-max-age-h 144
 
+      # Self-storage view (6 largest KS cities): Crexi + LOIS listings, city zoning GIS, KDOT AADT,
+      # OSM competition, Census demand. Area-wide public layers are cached in geocache/storage;
+      # per-listing lookups go to an uncached temp dir and listings live only in encrypted
+      # storage_state.enc. If the live listing pull fails, retry reusing the last good pull (<72 h).
+      - name: Storage (land 4-12 ac + facilities for sale)
+        continue-on-error: true
+        timeout-minutes: 40
+        run: |
+          run() { python3 -W ignore pipeline/storage.py \
+            --out "$RUNNER_TEMP/data/storage.json" \
+            --state "$RUNNER_TEMP/storage_state.json" \
+            --cache-dir "$RUNNER_TEMP/geocache/storage" \
+            --point-cache-dir "$RUNNER_TEMP/stpoint"; }
+          run || STORAGE_REUSE_STATE_H=72 run
+
       - name: Render + encrypt (StaticCrypt)
-        run: python3 pipeline/render.py --data "$RUNNER_TEMP/data/sites.json" --out-dir sites --password-env SITES_PASSWORD
+        run: python3 pipeline/render.py --data "$RUNNER_TEMP/data/sites.json" --storage "$RUNNER_TEMP/data/storage.json" --out-dir sites --password-env SITES_PASSWORD
 
       - name: Re-encrypt state
-        run: python3 pipeline/crypt.py enc "$RUNNER_TEMP/state.json" pipeline/state.enc
+        run: |
+          python3 pipeline/crypt.py enc "$RUNNER_TEMP/state.json" pipeline/state.enc
+          if [ -f "$RUNNER_TEMP/storage_state.json" ]; then python3 pipeline/crypt.py enc "$RUNNER_TEMP/storage_state.json" pipeline/storage_state.enc; fi
 
       - name: Commit encrypted output only
         run: |
           git config user.name "edifice-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add sites/index.html pipeline/state.enc
+          if [ -f pipeline/storage_state.enc ]; then git add pipeline/storage_state.enc; fi
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Refresh Kansas sites $(date -u +%Y-%m-%dT%H:%MZ)"
           git push
 
       - name: Scrub plaintext
         if: always()
-        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json"
+        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json" "$RUNNER_TEMP/storage_state.json" "$RUNNER_TEMP/stpoint"
