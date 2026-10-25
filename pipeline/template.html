@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Edifice — Kansas Sites</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 48'%3E%3Cpath d='M19 1 L31 13 L31 22 L19 34 L19 27 L27 19 L27 16 L19 8 Z' fill='none' stroke='%23F14B21' stroke-width='3'/%3E%3Cpath d='M14 13 L14 20 L6 28 L6 31 L14 39 L14 46 L2 34 L2 25 Z' fill='none' stroke='%23F14B21' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0A0A0A;--fg:#fff;--acc:#F14B21;--mut:#9A9A9A;--line:rgba(255,255,255,.12);--card:#121212}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font-family:'Jost',system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;
+ background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:72px 72px}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+a{color:var(--fg)}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 80px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:16px}
+.logo{display:flex;align-items:flex-end;gap:10px;text-decoration:none}
+.wordmark{font-size:24px;font-weight:500;line-height:1}
+.lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--acc);text-transform:uppercase;margin:28px 0 6px}
+h1{font-weight:300;font-size:clamp(32px,6vw,64px);line-height:1.02;margin:0 0 10px}
+h1 strong{font-weight:500}
+.sub{color:var(--mut);font-size:15px;max-width:760px;line-height:1.5}
+.stats{display:flex;gap:22px;flex-wrap:wrap;margin:18px 0}
+.stat b{display:block;font-size:26px;font-weight:400}
+.filters{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:rgba(10,10,10,.92);border:1px solid var(--line);padding:12px}
+.filters label{display:flex;flex-direction:column;gap:4px}
+.filters input,.filters select{background:#000;color:#fff;border:1px solid var(--line);padding:9px 8px;font:14px 'JetBrains Mono',monospace;border-radius:0;width:100%;-webkit-appearance:none}
+.filters .chk{flex-direction:row;align-items:center;gap:8px;font-size:13px}
+.filters .chk input{width:auto}
+.toggle{display:none}
+@media(min-width:900px){.filters{grid-template-columns:repeat(11,1fr);position:sticky;top:0;z-index:5;backdrop-filter:blur(6px)}}
+.count{margin:14px 0 8px}
+.cards{display:grid;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);padding:14px;cursor:pointer;position:relative}
+.card:active{border-color:var(--acc)}
+.card h3{margin:0 0 4px;font-weight:500;font-size:18px;padding-right:56px}
+.score{position:absolute;right:12px;top:12px;font:500 22px 'JetBrains Mono',monospace;color:var(--acc)}
+.row{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:#ddd;margin-top:8px}
+.badge{display:inline-block;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.12em;padding:3px 6px;border:1px solid var(--acc);color:var(--acc);margin-right:6px;vertical-align:middle;text-transform:uppercase}
+.badge.cert{border-color:#fff;color:#fff}.badge.chg{border-color:var(--mut);color:var(--mut)}.badge.warn{border-color:#c9a227;color:#c9a227}
+table{display:none;width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:500 11px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--bg)}
+th.s{color:var(--acc)}
+tbody tr{cursor:pointer}tbody tr:hover{background:#151515}
+td.n{font-family:'JetBrains Mono',monospace;white-space:nowrap}
+@media(min-width:900px){table{display:table}.cards{display:none}}
+dialog{background:#0d0d0d;color:#fff;border:1px solid var(--line);padding:0;width:min(860px,100vw);max-width:100vw;max-height:100dvh;height:auto}
+@media(max-width:640px){dialog{width:100vw;height:100dvh;margin:0;border:0}}
+dialog::backdrop{background:rgba(0,0,0,.7)}
+.dh{position:sticky;top:0;background:#0d0d0d;border-bottom:1px solid var(--line);padding:14px 16px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.dh h2{margin:0;font-weight:500;font-size:22px}
+.close{background:none;border:1px solid var(--line);color:#fff;font:16px 'JetBrains Mono';padding:6px 12px;cursor:pointer}
+.db{padding:16px}
+.sec{margin:0 0 20px}.sec h4{margin:0 0 8px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.14em;color:var(--acc);text-transform:uppercase}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:14px}
+.kv div:nth-child(odd){color:var(--mut)}
+.bar{height:6px;background:#222;margin:4px 0 2px}.bar i{display:block;height:100%;background:var(--acc)}
+.part{margin-bottom:10px;font-size:14px}.part small{color:var(--mut)}
+.contact{border:1px solid var(--line);padding:10px 12px;margin-bottom:8px}
+.contact .role{font:500 10px 'JetBrains Mono';letter-spacing:.12em;color:var(--mut);text-transform:uppercase}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.btn{display:inline-block;border:1px solid var(--acc);color:#fff;text-decoration:none;padding:9px 12px;font:13px 'JetBrains Mono',monospace}
+.btn:active{background:var(--acc)}
+.src{font-size:12px;color:var(--mut);word-break:break-all}
+details{border:1px solid var(--line);padding:12px;margin-top:24px}summary{cursor:pointer;font:500 12px 'JetBrains Mono';letter-spacing:.12em;text-transform:uppercase}
+.ok{color:#6fcf7f}.fail{color:var(--acc)}
+p.desc{color:#ccc;font-size:14px;line-height:1.5}
+.subs{font:12px 'JetBrains Mono',monospace;color:var(--mut);margin-top:6px}.subs b{color:#fff;font-weight:500}
+.badge.ann{border-color:#6fcf7f;color:#6fcf7f}.badge.unc{border-color:var(--mut);color:#ccc}.badge.pend{border-color:#c9a227;color:#c9a227}.badge.reg{border-color:var(--acc);color:var(--acc)}
+.sbtn{display:flex;justify-content:space-between;align-items:center;width:100%;background:#000;border:1px solid var(--line);color:#fff;padding:12px;margin-bottom:8px;cursor:pointer;text-align:left;font:14px 'Jost',sans-serif}
+.sbtn:active,.sbtn:hover{border-color:var(--acc)}.sbtn .mono{font-size:20px;color:var(--acc)}.sbtn small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.issue{border-bottom:1px solid var(--line);padding:10px 0;font-size:14px;line-height:1.45}.issue .meta{font:11px 'JetBrains Mono',monospace;color:var(--mut);margin-bottom:3px}
+.chip{display:inline-block;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.1em;padding:2px 6px;text-transform:uppercase;margin-right:6px;border:1px solid}
+.chip.negative{color:var(--acc);border-color:var(--acc)}.chip.positive{color:#6fcf7f;border-color:#6fcf7f}.chip.neutral{color:var(--mut);border-color:var(--mut)}
+.why{font-size:13px;color:#ccc;margin:0 0 10px;padding-left:16px}.why li{margin-bottom:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <a class="logo" href="https://edifice.vc/">
+  <svg width="20" height="30" viewBox="0 0 32 48" fill="none" aria-hidden="true"><path d="M19 1 L31 13 L31 22 L19 34 L19 27 L27 19 L27 16 L19 8 Z" stroke="#F14B21" stroke-width="3"/><path d="M14 13 L14 20 L6 28 L6 31 L14 39 L14 46 L2 34 L2 25 Z" stroke="#F14B21" stroke-width="3"/></svg>
+  <span class="wordmark">Edifice</span>
+ </a>
+ <span class="lbl mono" id="refreshed"></span>
+</header>
+<div class="eyebrow mono">Kansas · Data-center land</div>
+<h1>Sites <strong>with power &amp; gas</strong></h1>
+<p class="sub">Kansas Certified Sites plus every public LOIS listing of 100+ acres (Kansas Commerce, Evergy, Greater Wichita Partnership), ranked 0–100 overall: <b>60% infrastructure</b> (high-voltage transmission, substations, gas pipelines, scale, fiber, water) and <b>40% community/regulatory</b> (local and state moratoriums or bans, plus news, hearings and petitions). Each site also shows whether it is inside city limits. Tap a site for the breakdown, every cited issue and who to call.</p>
+<div class="stats mono" id="stats"></div>
+<div class="filters" id="filters">
+ <label><span class="lbl mono">Min acres</span><input id="fAcres" type="number" inputmode="numeric" value="0" min="0" step="50"></label>
+ <label><span class="lbl mono">County</span><select id="fCounty"><option value="">All</option></select></label>
+ <label><span class="lbl mono">Min line kV</span><select id="fKv"><option value="69">69+</option><option value="115">115+</option><option value="138">138+</option><option value="230">230+</option><option value="345">345</option></select></label>
+ <label><span class="lbl mono">Line within mi</span><input id="fKvMi" type="number" inputmode="decimal" value="" placeholder="any" min="0" step="0.5"></label>
+ <label><span class="lbl mono">Gas within mi</span><input id="fGas" type="number" inputmode="decimal" value="" placeholder="any" min="0" step="0.5"></label>
+ <label><span class="lbl mono">Min overall</span><input id="fScore" type="number" inputmode="numeric" value="0" min="0" max="100" step="5"></label>
+ <label><span class="lbl mono">Min community</span><input id="fComm" type="number" inputmode="numeric" value="0" min="0" max="100" step="5"></label>
+ <label><span class="lbl mono">Annexation</span><select id="fAnnex"><option value="">Any</option><option value="annexed">Inside city limits</option><option value="unincorporated">Unincorporated</option><option value="pending">Pending / possible</option></select></label>
+ <label><span class="lbl mono">Sort</span><select id="fSort"><option value="score">Overall</option><option value="infra">Infrastructure</option><option value="comm">Community</option><option value="reg">Regulatory</option><option value="sent">Sentiment</option><option value="acres">Acres</option><option value="tx">Line distance</option><option value="gas">Gas distance</option><option value="name">Name</option><option value="new">Newest</option></select></label>
+ <label class="chk"><input id="fCert" type="checkbox"><span class="lbl mono">Certified only</span></label>
+ <label class="chk"><input id="fNew" type="checkbox"><span class="lbl mono">New / changed</span></label>
+</div>
+<div class="count lbl mono" id="count"></div>
+<div class="cards" id="cards"></div>
+<table id="tbl"><thead><tr>
+ <th data-k="score">Overall</th><th data-k="infra">Infra</th><th data-k="comm">Comm</th><th data-k="name">Site</th><th data-k="county">County</th><th data-k="acres">Acres</th><th data-k="tx">Best line</th><th data-k="sub">Substation</th><th data-k="gas">Gas pipeline</th><th>Contact</th>
+</tr></thead><tbody></tbody></table>
+<details id="method"><summary>Scoring method &amp; sources</summary><div id="methodBody" class="db"></div></details>
+</div>
+<dialog id="ip"><div class="dh"><div><div class="lbl mono" id="ipSub"></div><h2 id="ipTitle"></h2></div><button class="close" onclick="ip.close()" aria-label="Close">✕</button></div><div class="db" id="ipBody"></div></dialog>
+<dialog id="dlg"><div class="dh"><div><div id="dBadges"></div><h2 id="dTitle"></h2><div class="lbl mono" id="dSub"></div></div><button class="close" onclick="dlg.close()" aria-label="Close">✕</button></div><div class="db" id="dBody"></div></dialog>
+<script id="data" type="application/json">/*__DATA__*/</script>
+<script>
+const D=JSON.parse(document.getElementById('data').textContent);
+const S=D.sites;S.forEach(s=>{if(s.overall==null)s.overall=s.score;if(s.infra_score==null)s.infra_score=s.score});const I=D.issues||{};const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(n,d=1)=>n==null?'—':Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+const own=o=>(!o||/NOT AVAILABLE/i.test(o))?'owner n/a':o;
+const tel=p=>'tel:'+String(p).replace(/[^\d+]/g,'');
+function bestLine(s,minKv){const L=(s.power&&s.power.lines_by_class)||[];let b=null;for(const l of L){if(l.class>=minKv&&(b==null||l.mi<b.mi))b=l}return b}
+function sub(s,minKv){const P=s.power||{};const L=P.subs_by_class||[];const m=L.find(l=>l.class===(minKv||69));return m||P.nearest_sub||null}
+function topContact(s){const c=(s.contacts||[]).find(c=>/Local|Listing/.test(c.role)&&(c.email||c.phone))||s.contacts[0];return c}
+const gen=new Date(D.generated_at);
+$('refreshed').textContent='Last refreshed '+gen.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+const nNew=S.filter(s=>s.is_new).length,nChg=S.filter(s=>s.is_changed&&!s.is_new).length;
+$('stats').innerHTML=`<div class="stat"><b>${S.length}</b><span class="lbl">sites</span></div><div class="stat"><b>${S.filter(s=>s.certified).length}</b><span class="lbl">certified</span></div><div class="stat"><b>${S.filter(s=>s.overall>=70).length}</b><span class="lbl">overall 70+</span></div><div class="stat"><b>${S.filter(s=>an(s).status==='annexed').length}</b><span class="lbl">in city limits</span></div><div class="stat"><b style="color:var(--acc)">${nNew}</b><span class="lbl">new this week</span></div><div class="stat"><b>${nChg}</b><span class="lbl">changed</span></div>`;
+[...new Set(S.map(s=>s.county).filter(Boolean))].sort().forEach(c=>$('fCounty').insertAdjacentHTML('beforeend',`<option>${esc(c)}</option>`));
+const F=['fAcres','fCounty','fKv','fKvMi','fGas','fScore','fComm','fAnnex','fSort','fCert','fNew'];
+try{const saved=JSON.parse(localStorage.getItem('edks_f')||'{}');F.forEach(k=>{if(k in saved){const el=$(k);el.type==='checkbox'?el.checked=saved[k]:el.value=saved[k]}})}catch(e){}
+F.forEach(k=>$(k).addEventListener('input',render));
+document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const m={county:'name'};$('fSort').value=th.dataset.k==='sub'?'tx':(th.dataset.k==='county'?'name':th.dataset.k);render()});
+function an(s){return s.annexation||{status:'unknown'}}
+function cm(s){return s.community||null}
+function annexBadge(s){const a=an(s);let b='';if(a.status==='annexed')b='<span class="badge ann">Annexed · '+esc(a.place_base||a.place||s.city)+'</span>';else if(a.status==='unincorporated')b='<span class="badge unc">Unincorporated'+(a.nearest_base&&a.nearest_city_mi!=null?' · '+fmt(a.nearest_city_mi)+' mi to '+esc(a.nearest_base):'')+'</span>';else b='<span class="badge unc">City limits unknown</span>';if(a.pending)b+='<span class="badge pend">Pending annexation</span>';else if(a.listing_says_annexed)b+='<span class="badge pend">Listing says in city limits</span>';else if(a.annex_possible)b+='<span class="badge pend">Annexation possible</span>';return b}
+function subLine(s){const c=cm(s);return c?`Infra <b>${s.infra_score}</b> · Community <b>${c.score}</b> (Reg ${c.regulatory.score} / Sent ${c.sentiment.score})`:`Infra <b>${s.infra_score}</b>`}
+function regFlag(s){const c=cm(s);if(!c)return '';const w=(c.regulatory.why||[]).find(x=>/governing\) — moratorium\/ban in effect/.test(x));const p=(c.regulatory.why||[]).find(x=>/governing\) — moratorium\/ban proposed/.test(x));return w?'<span class="badge reg">Moratorium</span>':p?'<span class="badge warn">Ban/moratorium proposed</span>':''}
+function badges(s){let b='';if(s.is_new)b+='<span class="badge">New</span>';else if(s.is_changed)b+='<span class="badge chg">Updated</span>';if(s.certified)b+='<span class="badge cert">Certified</span>';if(s.acres_suspect)b+='<span class="badge warn">Check acres</span>';return b}
+function render(){
+ const v={};F.forEach(k=>{const el=$(k);v[k]=el.type==='checkbox'?el.checked:el.value});localStorage.setItem('edks_f',JSON.stringify(v));
+ const minKv=+v.fKv||69;
+ let R=S.filter(s=>{if((s.acres||0)<(+v.fAcres||0))return false;if(v.fCounty&&s.county!==v.fCounty)return false;if((s.overall||0)<(+v.fScore||0))return false;if(cm(s)&&cm(s).score<(+v.fComm||0))return false;if(v.fAnnex){const a=an(s);if(v.fAnnex==='pending'?!(a.pending||a.annex_possible||a.listing_says_annexed):a.status!==v.fAnnex)return false}
+  if(v.fCert&&!s.certified)return false;if(v.fNew&&!(s.is_new||s.is_changed))return false;
+  const bl=bestLine(s,minKv);if(v.fKvMi!==''&&(!bl||bl.mi>+v.fKvMi))return false;if(minKv>69&&!bl)return false;
+  if(v.fGas!==''&&(!s.gasline||s.gasline.mi>+v.fGas))return false;return true});
+ const k=v.fSort;R.sort((a,b)=>k==='acres'?(b.acres||0)-(a.acres||0):k==='tx'?((bestLine(a,minKv)||{mi:1e9}).mi-(bestLine(b,minKv)||{mi:1e9}).mi):k==='gas'?((a.gasline||{mi:1e9}).mi-(b.gasline||{mi:1e9}).mi):k==='name'?a.name.localeCompare(b.name):k==='new'?String(b.first_seen>b.lois_created?b.lois_created:b.first_seen).localeCompare(String(a.lois_created)):k==='infra'?b.infra_score-a.infra_score:k==='comm'?((cm(b)||{score:0}).score-(cm(a)||{score:0}).score):k==='reg'?((cm(b)||{regulatory:{score:0}}).regulatory.score-(cm(a)||{regulatory:{score:0}}).regulatory.score):k==='sent'?((cm(b)||{sentiment:{score:0}}).sentiment.score-(cm(a)||{sentiment:{score:0}}).sentiment.score):b.overall-a.overall);
+ document.querySelectorAll('th[data-k]').forEach(th=>th.classList.toggle('s',th.dataset.k===k));
+ $('count').textContent=`${R.length} of ${S.length} sites`;
+ $('cards').innerHTML=R.map(s=>{const bl=bestLine(s,minKv),sb=sub(s,minKv);return `<div class="card" data-id="${s.id}"><div class="score">${s.overall}</div><div>${badges(s)}${annexBadge(s)}${regFlag(s)}</div><h3>${esc(s.name)}</h3><div class="lbl mono">${esc(s.city)} · ${esc(s.county)} Co · ${fmt(s.acres,0)} ac</div><div class="subs">${subLine(s)}</div><div class="row mono"><span>⚡ ${bl?bl.kv+' kV '+fmt(bl.mi)+' mi':'—'}</span><span>▣ ${sb?(sb.kv?sb.kv+' kV ':'')+fmt(sb.mi)+' mi':'—'}</span><span>◍ gas ${s.gasline?fmt(s.gasline.mi)+' mi':'—'}</span></div></div>`}).join('');
+ document.querySelector('#tbl tbody').innerHTML=R.map(s=>{const bl=bestLine(s,minKv),sb=sub(s,minKv),c=topContact(s);return `<tr data-id="${s.id}"><td class="n" style="color:var(--acc);font-size:16px">${s.overall}</td><td class="n">${s.infra_score}</td><td class="n">${cm(s)?cm(s).score+'<div class="lbl">R'+cm(s).regulatory.score+' S'+cm(s).sentiment.score+'</div>':'—'}</td><td>${badges(s)}${annexBadge(s)}${regFlag(s)}<div>${esc(s.name)}</div><div class="lbl">${esc(s.city)}</div></td><td>${esc(s.county)}</td><td class="n">${fmt(s.acres,0)}</td><td class="n">${bl?bl.kv+' kV · '+fmt(bl.mi)+' mi':'—'}</td><td class="n">${sb?(sb.kv?sb.kv+' kV · ':'')+fmt(sb.mi)+' mi':'—'}</td><td class="n">${s.gasline?fmt(s.gasline.mi)+' mi':'—'}</td><td>${c?esc(c.name||c.org)+'<div class="lbl">'+esc(c.org&&c.name?c.org:'')+'</div>':'—'}</td></tr>`}).join('');
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-panel]');if(b){openPanel(b.dataset.site,b.dataset.panel);return}const el=e.target.closest('[data-id]');if(el&&!el.closest('dialog'))openSite(el.dataset.id)});
+const dlg=$('dlg');
+function kv(rows){return '<div class="kv">'+rows.filter(r=>r[1]!==''&&r[1]!=null&&r[1]!=='—').map(r=>`<div>${r[0]}</div><div>${r[1]}</div>`).join('')+'</div>'}
+function openSite(id){const s=S.find(x=>x.id===id);if(!s)return;history.replaceState(null,'','#'+id);
+ $('dBadges').innerHTML=badges(s);$('dTitle').textContent=s.name;$('dBadges').innerHTML+=annexBadge(s)+regFlag(s);$('dSub').textContent=`${s.city} · ${s.county} County · ${fmt(s.acres,1)} acres · overall ${s.overall}/100`;
+ const P=s.score_parts||{};
+ const parts=Object.entries(P).map(([k,p])=>`<div class="part"><div style="display:flex;justify-content:space-between"><span style="text-transform:capitalize">${k}</span><span class="mono">${fmt(p.pts)} / ${p.max}</span></div><div class="bar"><i style="width:${Math.round(100*p.pts/p.max)}%"></i></div><small>${esc(p.why)}</small></div>`).join('');
+ let _pk='';const lines=((s.power||{}).lines_by_class||[]).filter(l=>{const k=l.kv+'|'+l.mi;if(k===_pk)return false;_pk=k;return true}).map(l=>`${l.class}+ kV: ${l.kv} kV at ${fmt(l.mi)} mi (${esc(own(l.owner))})`).join('<br>');
+ const P2=s.power||{};const subs=[P2.nearest_sub&&['Any voltage',P2.nearest_sub]].concat((P2.subs_by_class||[]).filter(x=>x.class>=69).map(x=>[x.class+'+ kV',x])).filter(Boolean);const subHtml=subs.map(([lab,x])=>`${lab}: ${x.ref?`<a href="${esc(x.ref)}" target="_blank" rel="noopener">${esc(x.name||'unnamed')}</a>`:esc(x.name||'unnamed')}${x.kv?' · '+x.kv+' kV':''} · ${fmt(x.mi)} mi`).join('<br>');const el=(s.electric||[]).map(e=>[esc(e.provider)+(e.served_kv?` · served by ${e.served_kv} kV`:'')+(e.substation_mi!=null?` · substation ${fmt(e.substation_mi)} mi (listed)`:'')+(e.capability?'<br><small>'+esc(e.capability)+'</small>':'')]).join('<br>');
+ const g=s.gas||{},w=s.water||{},sw=s.sewer||{},t=s.telecom||{},h=s.highway||{},r=s.rail||{};
+ const contacts=(s.contacts||[]).map(c=>`<div class="contact"><div class="role">${esc(c.role)}</div><div><b>${esc(c.name||c.org)}</b>${c.title?' · '+esc(c.title):''}</div>${c.name&&c.org?`<div class="lbl">${esc(c.org)}</div>`:''}<div class="btns">${c.phone?`<a class="btn" href="${tel(c.phone)}">☎ ${esc(c.phone)}</a>`:''}${c.email?`<a class="btn" href="mailto:${esc(c.email)}?subject=${encodeURIComponent(s.name+' ('+s.city+', KS)')}">✉ ${esc(c.email)}</a>`:''}</div>${c.source?`<div class="src">Source: ${c.source.split(' ; ').map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`).join(' · ')}</div>`:''}</div>`).join('');
+ $('dBody').innerHTML=`
+ <div class="sec"><div class="btns" style="margin:0 0 14px"><a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Listing ↗</a><a class="btn" href="https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}" target="_blank" rel="noopener">Map ↗</a>${s.certified?`<a class="btn" href="${esc(D.cert_list_url)}" target="_blank" rel="noopener">Certified list ↗</a>`:''}</div></div>
+ ${overallSec(s)}
+ <div class="sec"><h4>Infrastructure score breakdown (${s.infra_score}/100)</h4>${parts}</div>
+ ${annexSec(s)}
+ <div class="sec"><h4>Power &amp; gas proximity (GIS)</h4>${kv([['Transmission',lines||'—'],['Substations',subHtml||'—'],['Gas pipeline',s.gasline?`${esc(s.gasline.operator)} (${esc(s.gasline.type)}) · ${fmt(s.gasline.mi)} mi`:'—']])}</div>
+ <div class="sec"><h4>Utilities (as listed)</h4>${kv([['Electric',el||'—'],['Natural gas',[g.provider,g.line_in?g.line_in+'″ line':'',g.main_in?g.main_in+'″ main':'',g.psi?g.psi+' psi':''].filter(Boolean).map(esc).join(' · ')||'—'],['Water',[w.provider,w.line_in?w.line_in+'″ line':'',w.peak_mgd?w.peak_mgd+' MGD peak':''].filter(Boolean).map(esc).join(' · ')+(w.capability?'<br><small>'+esc(w.capability)+'</small>':'')||'—'],['Sewer',[sw.provider,sw.line_in?sw.line_in+'″ line':''].filter(Boolean).map(esc).join(' · ')||'—'],['Telecom / fiber',[t.provider,t.capability].filter(Boolean).map(esc).join(' · ')||'—']])}</div>
+ <div class="sec"><h4>Site</h4>${kv([['Address',esc([s.address,s.city,'KS',s.zip].filter(Boolean).join(', '))],['Zoning',esc(s.zoning)||'—'],['Price',esc(s.price&&(s.price.sale?('$'+fmt(s.price.sale,0)):s.price.note))||'—'],['Highway',esc([h.interstate&&`${h.interstate} ${h.interstate_mi!=null?fmt(h.interstate_mi)+' mi':''}`,h.highway&&`${h.highway} ${h.highway_mi!=null?fmt(h.highway_mi)+' mi':''}`].filter(Boolean).join(' · '))||'—'],['Rail',esc(r.served?'Served — '+(r.railroads||[]).join(', ')+(r.shortline?' · '+r.shortline:''):(r.railroads&&r.railroads.length?r.railroads.join(', '):'—'))],['Sources',esc((s.sources||[]).join(', '))],['First seen',esc(s.first_seen)],['Listing updated',esc((s.lois_modified||'').slice(0,10))]])}${s.description?`<p class="desc">${esc(s.description)}</p>`:''}</div>
+ <div class="sec"><h4>Who to contact</h4>${contacts||'—'}</div>`;
+ if(!dlg.open)dlg.showModal();dlg.scrollTop=0;
+}
+function W(){return (D.weights||{overall:{infrastructure:.6,community:.4},community:{regulatory:.6,sentiment:.4}})}
+function pct(x){return Math.round(x*100)+'%'}
+function overallSec(s){const c=cm(s);if(!c)return '';const w=W();
+ return `<div class="sec"><h4>Overall ${s.overall} = ${pct(w.overall.infrastructure)} infrastructure + ${pct(w.overall.community)} community</h4>
+ <div class="part"><div style="display:flex;justify-content:space-between"><span>Infrastructure (power, gas, scale, fiber, water)</span><span class="mono">${s.infra_score} × ${pct(w.overall.infrastructure)}</span></div><div class="bar"><i style="width:${s.infra_score}%"></i></div></div>
+ <div class="part"><div style="display:flex;justify-content:space-between"><span>Community / regulatory = ${pct(w.community.regulatory)} reg + ${pct(w.community.sentiment)} sentiment</span><span class="mono">${c.score} × ${pct(w.overall.community)}</span></div><div class="bar"><i style="width:${c.score}%"></i></div></div>
+ <button class="sbtn" data-site="${s.id}" data-panel="regulatory"><span>Regulatory<small>Moratoriums, bans, ballot measures, data-center rules — tap for every issue found</small></span><span class="mono">${c.regulatory.score}</span></button>
+ <button class="sbtn" data-site="${s.id}" data-panel="sentiment"><span>Public sentiment<small>News, hearings, petitions, rate cases — tap for every issue found</small></span><span class="mono">${c.sentiment.score}</span></button>
+ <small class="src">Governing jurisdiction: ${esc(jn(c.jurisdictions.governing))}${c.jurisdictions.secondary.length?' · also counted: '+c.jurisdictions.secondary.map(jn).map(esc).join(', '):''} · statewide</small></div>`}
+function jn(j){if(!j)return '';if(j==='state')return 'Kansas (statewide)';const [t,n]=j.split(':');const N=n.replace(/\b\w/g,c=>c.toUpperCase());return t==='county'?N+' County':'City of '+N}
+function annexSec(s){const a=an(s);const st={annexed:'Inside city limits (annexed)',unincorporated:'Unincorporated (outside city limits)',unknown:'Unknown'}[a.status]||a.status;
+ const news=(a.news||[]).map(id=>I[id]).filter(Boolean).map(issueRow).join('');
+ return `<div class="sec"><h4>Annexation status</h4>${kv([['Status',esc(st)+(a.pending?' · <b style="color:#c9a227">pending annexation</b>':a.listing_says_annexed?' · <b style="color:#c9a227">listing says inside city limits (Census disagrees)</b>':a.annex_possible?' · annexation mentioned as possible':'')],['City',esc(a.place||'—')],['Distance to limit',a.edge_mi!=null?fmt(a.edge_mi,2)+' mi'+(a.status==='annexed'?' inside boundary':''):'—'],['Nearest city',a.status!=='annexed'&&a.nearest_city?esc(a.nearest_city)+' · '+fmt(a.nearest_city_mi)+' mi':'—'],['Note',esc(a.note||'')],['Listing text',(a.listing_text||[]).map(t=>'“'+esc(t)+'”').join('<br>')]])}
+ <div class="src">Sources: ${(a.sources||[]).map(u=>`<a href="${esc(u.url||u)}" target="_blank" rel="noopener">${esc(u.label||u.url||u)}</a>`).join(' · ')}</div>${news?'<div style="margin-top:8px"><div class="lbl mono">Annexation news</div>'+news+'</div>':''}</div>`}
+function issueRow(i){return `<div class="issue"><div class="meta"><span class="chip ${esc(i.tag)}">${esc(i.tag)}</span>${esc(i.date||'n.d.')} · ${esc(jn(i.jurisdiction))} · ${esc(i.kind)}${i.reg_status?' ('+esc(i.reg_status)+')':''} · ${esc(i.origin||'')}</div><div><b>${esc(i.title)}</b></div>${i.summary?`<div style="color:#ccc">${esc(i.summary)}</div>`:''}<div class="src"><a href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.outlet||i.url)} ↗</a></div></div>`}
+const ip=$('ip');
+function openPanel(id,which){const s=S.find(x=>x.id===id);const c=cm(s);if(!c)return;
+ const all=(c.issues||[]).map(x=>I[x]).filter(Boolean);
+ const mine=all.filter(i=>which==='regulatory'?i.kind==='regulatory':(i.kind==='sentiment'||i.kind==='rate case'));
+ const mineIds=new Set(mine.map(i=>i.id));
+ const other=all.filter(i=>!mineIds.has(i.id)&&i.kind!=='annexation');
+ const sc=c[which];
+ $('ipSub').textContent=s.name;$('ipTitle').textContent=(which==='regulatory'?'Regulatory':'Public sentiment')+' · '+sc.score+'/100';
+ $('ipBody').innerHTML=`<div class="sec"><h4>How this score was built</h4><ul class="why">${(sc.why||[]).map(w=>'<li>'+esc(w)+'</li>').join('')}</ul><small class="src">${esc((D.community_rules||{})[which]||'')}</small></div>
+ <div class="sec"><h4>${mine.length} issue${mine.length===1?'':'s'} found</h4>${mine.length?mine.map(issueRow).join(''):'<p class="desc">No issues found for '+esc([c.jurisdictions.governing].concat(c.jurisdictions.secondary).map(jn).join(', '))+' or statewide.</p>'}</div>
+ ${other.length?`<div class="sec"><h4>Other items for these jurisdictions (${other.length})</h4>${other.map(issueRow).join('')}</div>`:''}
+ <details style="margin-top:0"><summary>What was searched (${(c.searched||[]).length} queries)</summary><div class="src" style="margin-top:8px">${(c.searched||[]).map(esc).join('<br>')}<br>Plus hand-verified checks of city, county and state sources (Kansas Legislature, KCC, county/city sites, local news).</div></details>`;
+ ip.showModal();ip.scrollTop=0}
+dlg.addEventListener('close',()=>history.replaceState(null,'',location.pathname));
+$('methodBody').innerHTML='<div class="sec"><h4>Score (0–100)</h4>'+Object.entries(D.scoring).map(([k,v])=>`<div class="part"><b style="text-transform:capitalize">${k}</b> <span class="mono">max ${v.max}</span><br><small>${esc(v.rule)}</small></div>`).join('')+(D.community_rules?'</div><div class="sec"><h4>Overall &amp; community score</h4>'+Object.entries(D.community_rules).map(([k,v])=>`<div class="part"><b style="text-transform:capitalize">${k}</b><br><small>${esc(v)}</small></div>`).join('')+'<small>Annexation: listing pin tested against U.S. Census TIGERweb incorporated-place boundaries (Jan 1 vintage) plus listing text. Pins near a boundary or parcels straddling it should be confirmed with the county.</small>':'')+'<small><br>Distances are straight-line from the listing’s coordinates (EPSG:5070). Transmission: HIFLD; gas: EIA; substations: OpenStreetMap. Verify capacity with the utility before relying on any site.</small></div><div class="sec"><h4>Source status (this refresh)</h4>'+Object.entries(D.sources).map(([k,v])=>`<div class="part"><span class="${v.ok?'ok':'fail'} mono">${v.ok?'OK':'FAIL'}</span> ${esc(k)} — ${esc(v.detail)}${v.url?`<div class="src"><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.url)}</a></div>`:''}</div>`).join('')+'</div>';
+render();
+if(location.hash.length>1)openSite(location.hash.slice(1));
+</script>
+</body>
+</html>

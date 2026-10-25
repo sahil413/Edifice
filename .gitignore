@@ -1,0 +1,12 @@
+# Plaintext data must never be committed
+private/
+data/
+raw/
+build/
+reports/
+snapshots/
+*.json
+!package.json
+.staticrypt.json
+__pycache__/
+*.pyc

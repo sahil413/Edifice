@@ -1,0 +1,94 @@
+name: Refresh Kansas sites
+
+on:
+  schedule:
+    - cron: "0 10 * * *"   # 06:00 EDT (05:00 EST in winter)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-sites
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SITES_PASSWORD: ${{ secrets.SITES_PASSWORD }}
+      PASSWORD_ENV: SITES_PASSWORD
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: |
+          pip install -r pipeline/requirements.txt
+          npm install -g staticrypt@3
+
+      - name: Check secret
+        run: test -n "$SITES_PASSWORD" || { echo "SITES_PASSWORD repo secret is missing"; exit 1; }
+
+      # Public GIS layers only (no contacts/listing data) — lets a flaky Overpass fall back to the last good pull.
+      - name: Restore public geodata cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/geocache
+          key: geocache-${{ github.run_id }}
+          restore-keys: geocache-
+
+      - name: Decrypt private inputs into runner temp
+        run: |
+          python3 pipeline/crypt.py dec pipeline/contacts.enc "$RUNNER_TEMP/contacts.json"
+          if [ -f pipeline/state.enc ]; then python3 pipeline/crypt.py dec pipeline/state.enc "$RUNNER_TEMP/state.json"; fi
+          python3 pipeline/crypt.py dec pipeline/issues.enc "$RUNNER_TEMP/issues.json"
+
+      - name: Scrape
+        run: |
+          python3 pipeline/scrape.py \
+            --out-dir "$RUNNER_TEMP/data" \
+            --geo-cache-dir "$RUNNER_TEMP/geocache" \
+            --contacts "$RUNNER_TEMP/contacts.json" \
+            --state "$RUNNER_TEMP/state.json"
+
+      # Community/regulatory score + annexation status. News queries are cached for 6 days
+      # (--news-max-age-h 144), so sentiment refreshes at least weekly; TIGER boundaries and
+      # hand-verified regulatory items (issues.enc) are applied every day.
+      - name: Community / regulatory + annexation
+        run: |
+          python3 -W ignore pipeline/community.py \
+            --data "$RUNNER_TEMP/data/sites.json" \
+            --cache-dir "$RUNNER_TEMP/geocache/community" \
+            --curated "$RUNNER_TEMP/issues.json" \
+            --state "$RUNNER_TEMP/state.json" \
+            --news-max-age-h 144
+
+      - name: Render + encrypt (StaticCrypt)
+        run: python3 pipeline/render.py --data "$RUNNER_TEMP/data/sites.json" --out-dir sites --password-env SITES_PASSWORD
+
+      - name: Re-encrypt state
+        run: python3 pipeline/crypt.py enc "$RUNNER_TEMP/state.json" pipeline/state.enc
+
+      - name: Commit encrypted output only
+        run: |
+          git config user.name "edifice-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sites/index.html pipeline/state.enc
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Refresh Kansas sites $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push
+
+      - name: Scrub plaintext
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json"
