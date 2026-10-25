@@ -36,7 +36,8 @@ jobs:
         run: |
           pip install -r pipeline/requirements.txt
           npm install -g staticrypt@3
-          command -v pdftotext || sudo apt-get install -y -q poppler-utils   # PDF ordinances / agendas
+          # pdftotext for PDF ordinances/agendas; non-fatal (PDF citations are then marked "not re-verified")
+          command -v pdftotext || { sudo apt-get update -q && sudo apt-get install -y -q poppler-utils; } || echo "poppler-utils unavailable"
 
       - name: Check secret
         run: test -n "$SITES_PASSWORD" || { echo "SITES_PASSWORD repo secret is missing"; exit 1; }
