@@ -21,6 +21,7 @@ import requests
 from pyproj import Transformer
 from shapely.geometry import LineString, MultiLineString, Point
 from shapely.strtree import STRtree
+from pricing import price_info  # asking price / $ per acre (listing-stated only)
 
 UA = "Mozilla/5.0 (compatible; EdificeSitesBot/1.0; +https://edifice.vc)"
 CERT_LIST_URL = "https://www.kansascommerce.gov/program/business-incentives-and-services/certified-sites-program/sites/"
@@ -239,7 +240,8 @@ def site_record(d, src_names, cert_entry):
         "county": clean(loc.get("countyName")), "address": clean(loc.get("street")), "zip": clean(loc.get("zip")),
         "lat": coords[1], "lon": coords[0], "acres": acres,
         "acres_suspect": bool(acres and acres > SUSPECT_ACRES),
-        "price": {"sale": num((b.get("pricing") or {}).get("salePrice")), "note": clean((b.get("pricing") or {}).get("pricingNote"))},
+        "price": dict(price_info(b.get("pricing"), acres, clean(ab.get("description")), bool(acres and acres > SUSPECT_ACRES)),
+                      raw={"sale": num((b.get("pricing") or {}).get("salePrice")), "note": clean((b.get("pricing") or {}).get("pricingNote"))}),
         "zoning": ", ".join(ab.get("zoning") or []) if isinstance(ab.get("zoning"), list) else clean(ab.get("zoning")),
         "setting": clean(ab.get("setting")), "features": ab.get("specialtyFeatures") or [],
         "description": clean(ab.get("description"))[:1200],
@@ -509,7 +511,7 @@ def main():
     state["baseline"] = baseline
     seen = state.setdefault("sites", {})
     for r in recs:
-        h = hashlib.sha1(json.dumps({k: r[k] for k in ("name", "acres", "price", "zoning", "electric", "gas", "water", "telecom")}, sort_keys=True).encode()).hexdigest()[:12]
+        h = hashlib.sha1(json.dumps({k: (r[k].get("raw", r[k]) if k == "price" and isinstance(r[k], dict) else r[k]) for k in ("name", "acres", "price", "zoning", "electric", "gas", "water", "telecom")}, sort_keys=True).encode()).hexdigest()[:12]
         s = seen.get(r["id"])
         if not s:
             s = seen[r["id"]] = {"first_seen": now.date().isoformat(), "hash": h, "changed": None}

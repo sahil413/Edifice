@@ -33,3 +33,12 @@ Local run (password in EDIFICE_SITES_PASSWORD):
     python3 pipeline/weekly_report.py --data private/data/sites.json --snapshots private/snapshots --out private/reports
 
 CI (`.github/workflows/refresh.yml`) uses repo secret `SITES_PASSWORD` (same password).
+
+## Price per acre (`pricing.py`)
+
+`scrape.py` calls `pricing.price_info()` for each listing. It uses only prices the listing states
+(LOIS `salePrice`, `pricingNote`, `leaseRateNote`, or an explicit "Sale/Asking Price: $X" in the
+description). $/acre = listed per-acre price (or $/sq ft × 43,560), else total ÷ listed acres.
+No price → "—"; "Negotiable" / "Call for price" / "Auction" / "Lease only" echo the listing.
+Values outside $1,000–$500,000/acre, totals that disagree with the stated $/acre, sale-price fields
+that only make sense per acre, and suspect acreage are flagged (`price.flags`), never corrected.

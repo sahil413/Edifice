@@ -40,6 +40,23 @@ def ann_text(s):
     elif a.get("annex_possible"): t += ", annexation possible"
     return t
 
+def money(n):
+    return "—" if n is None else (f"${n/1e6:,.2f}M" if n >= 1e6 else f"${n:,.0f}")
+
+def price_text(s):
+    p = s.get("price") or {}
+    if "basis" not in p:  # snapshot from before price parsing
+        return f"${p['sale']:,.0f} listed" if p.get("sale") else (p.get("note") or "no price listed")
+    if p.get("per_acre") is None and p.get("total") is None:
+        return p.get("label") or "no price listed"
+    lo, hi = p.get("per_acre_low"), p.get("per_acre_high")
+    ppa = (f"${lo:,.0f}–{hi:,.0f}/ac" if lo is not None and hi and hi != lo else f"${p['per_acre']:,.0f}/ac") if p.get("per_acre") is not None else ""
+    tot = (money(p["total"]) + (" (calc.)" if p.get("total_computed") else "")) if p.get("total") is not None else ""
+    t = " · ".join(x for x in (tot, ppa) if x)
+    if p.get("label"): t += f" · {p['label']}"
+    if p.get("flagged"): t += " · ⚠ check price"
+    return t
+
 def site_line(s):
     bl = best_line(s); g = s.get("gasline"); c = comm(s)
     sc = (f"overall **{ov(s)}** (infra {s.get('infra_score', s.get('score'))} · community {c['score']}: reg {c['regulatory']['score']} / sentiment {c['sentiment']['score']})"
@@ -47,6 +64,7 @@ def site_line(s):
     return (f"**{s['name']}** — {s['city']}, {s['county']} Co · {s['acres']:,.0f} ac · {sc} · {ann_text(s)}"
             + (f" · {bl['kv']:.0f} kV line {bl['mi']:.1f} mi" if bl else "")
             + (f" · gas pipeline {g['mi']:.1f} mi" if g else "")
+            + f" · price {price_text(s)}"
             + (" · CERTIFIED" if s.get("certified") else "") + f"  \n  [{s['url']}]({s['url']})")
 
 def main():
@@ -121,9 +139,19 @@ def main():
         if c:
             md.append("   - Regulatory: " + "; ".join(c["regulatory"]["why"]))
             md.append("   - Sentiment: " + "; ".join(c["sentiment"]["why"][:4]))
+        pp = s.get("price") or {}
+        if pp.get("basis") or pp.get("flags"):
+            md.append("   - Price: " + price_text(s) + (f" ({pp['basis']})" if pp.get("basis") else "") + "".join(f"; ⚠ {f}" for f in pp.get("flags") or []))
         md.append("   - Infrastructure: " + "; ".join(f"{k} {p['pts']:g}/{p['max']} ({p['why']})" for k, p in s["score_parts"].items()))
         for c in key_contacts(s):
             md.append(f"   - Contact ({c.get('role')}): {contact_line(c)}")
+    md += [""]
+    cheap = sorted((x for x in cur["sites"] if ov(x) >= 70 and (x.get("price") or {}).get("per_acre") is not None),
+                   key=lambda x: x["price"]["per_acre"])[:5]
+    priced = [x for x in cur["sites"] if (x.get("price") or {}).get("per_acre") is not None]
+    md += ["## Lowest $/acre among sites scoring 70+ overall", "",
+           f"_{len(priced)} of {len(cur['sites'])} sites list a price; ⚠ marks a value to confirm._", ""]
+    md += [f"{n}. {site_line(x)}" for n, x in enumerate(cheap, 1)] or ["- None"]
     md += [""]
     if fails: md += ["## Source problems this run", ""] + [f"- {f}" for f in fails] + [""]
     md += ["_Scores are screening estimates from public GIS (HIFLD lines, EIA pipelines, OSM substations) and LOIS listing data; confirm capacity with the utility._"]
