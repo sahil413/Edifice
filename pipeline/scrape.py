@@ -222,6 +222,37 @@ def contact(name, title, org, email, phone, source, role):
          "phone": norm_phone(phone) if phone else "", "source": source, "role": role}
     return c if (c["name"] or c["email"] or c["phone"]) else None
 
+ACRES_TEXT_RX = re.compile(r"([\d][\d,]*(?:\.\d+)?)\s*(?:\+\s*)?(?:-\s*)?(?:acres?|ac\b)", re.I)
+
+
+def meets_min_acres(rec, d, cert_entry):
+    """Enforce the 100+ acre rule for every source, certified sites included.
+    Listed acreage >= MIN_ACRES (and not suspect) passes. A suspect (implausibly large) or missing
+    acreage passes only if an independent figure -- the certified-sites list or an acreage stated in
+    the listing text -- is >= MIN_ACRES; its flags are kept. Returns (keep, note)."""
+    a = rec.get("acres")
+    if a and not rec.get("acres_suspect"):
+        return a >= MIN_ACRES, None
+    other = []
+    if cert_entry and cert_entry.get("acres_listed"):
+        other.append((cert_entry["acres_listed"], "Kansas Commerce certified-sites list"))
+    text = " ".join(clean(x) for x in (rec.get("name"), ((d.get("additionalDetails") or {}).get("about") or {}).get("description")) if x)
+    for m in ACRES_TEXT_RX.finditer(text):
+        try:
+            other.append((float(m.group(1).replace(",", "")), "listing text"))
+        except ValueError:
+            pass
+    other = [(v, s) for v, s in other if v < SUSPECT_ACRES]
+    if other:
+        v, s = max(other)
+        if v >= MIN_ACRES:
+            return True, f"{'Listed acreage looks wrong' if a else 'No acreage field'}; {s} gives {v:,.0f} acres"
+        return False, f"{s} gives {v:,.0f} acres"
+    if a:  # suspect value: read as square feet, as these errors usually are
+        return a / 43560 >= MIN_ACRES, f"{a:,.0f} read as sq ft = {a/43560:,.1f} acres"
+    return False, "no acreage listed"
+
+
 def site_record(d, src_names, cert_entry):
     b = d.get("basicInfo", {}); loc = b.get("location", {}); u = d.get("utilities", {}) or {}
     tr = d.get("transportation", {}) or {}; ab = (d.get("additionalDetails") or {}).get("about", {}) or {}
@@ -397,16 +428,25 @@ def main():
     for sid in cert_by_id:
         srcs[sid].add("Kansas Certified Sites")
 
-    recs, fails = [], []
+    recs, fails, small = [], [], []
     for n, sid in enumerate(sorted(srcs)):
         try:
             d = cached(args.cache_dir, f"site_{sid}.json", lambda: fetch_lois_site(sid))
             if not d or "basicInfo" not in d:
                 raise RuntimeError("empty")
-            recs.append(site_record(d, srcs[sid], cert_by_id.get(sid)))
+            rec = site_record(d, srcs[sid], cert_by_id.get(sid))
+            keep, why = meets_min_acres(rec, d, cert_by_id.get(sid))
+            if keep:
+                if why: rec["acres_note"] = why
+                recs.append(rec)
+            else:
+                small.append((rec["name"], rec["acres"], why))
         except Exception as e:
             fails.append((sid, str(e)[:120]))
         time.sleep(0.15)
+    STATUS["100+ acre filter"] = {"ok": True, "detail": f"{len(small)} listings dropped as under {MIN_ACRES:.0f} acres (certified sites included)", "url": ""}
+    if small:
+        log("dropped <100 ac: " + "; ".join(f"{n} ({a})" for n, a, _ in small[:40]))
     STATUS["LOIS site detail API"] = {"ok": not fails or len(fails) < len(srcs) / 2, "detail": f"{len(recs)} fetched, {len(fails)} failed", "url": f"{LOIS_API}/site/<id>"}
 
     # de-duplicate the same parcel listed twice (same name, <0.5 mi apart)

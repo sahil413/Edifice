@@ -86,7 +86,8 @@ def price_info(pricing, acres, description="", acres_suspect=False):
     if total is None and ppa and acres and not acres_suspect and ppa_low is None:
         total, total_computed = ppa * acres, True
     if ppa is not None and not (PPA_LOW <= ppa <= PPA_HIGH):
-        flags.append(f"${ppa:,.0f}/acre is " + ("below typical Kansas farmland value" if ppa < PPA_LOW else "above") + f" the ${PPA_LOW:,}–${PPA_HIGH:,} range used for checks — confirm with the listing contact")
+        flags.append(f"Price is below ${PPA_LOW:,}/acre, which is under typical Kansas farmland values. Verify with the listing contact." if ppa < PPA_LOW
+                     else f"Price is above ${PPA_HIGH:,}/acre, which is unusually high for raw land. Verify with the listing contact.")
     if ppa is not None and acres_suspect and not any("Acreage" in f for f in flags):
         flags.append(f"Acreage {acres:,.0f} looks like a listing error, so totals derived from it are unreliable")
 

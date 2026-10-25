@@ -42,3 +42,9 @@ description). $/acre = listed per-acre price (or $/sq ft × 43,560), else total 
 No price → "—"; "Negotiable" / "Call for price" / "Auction" / "Lease only" echo the listing.
 Values outside $1,000–$500,000/acre, totals that disagree with the stated $/acre, sale-price fields
 that only make sense per acre, and suspect acreage are flagged (`price.flags`), never corrected.
+
+## 100+ acre rule
+`scrape.meets_min_acres()` applies to every source, certified sites included. A listing passes if its
+acreage is ≥100. A suspect (>20,000) or missing acreage passes only if the certified-sites list or the
+listing text states ≥100 acres; otherwise a suspect value is read as square feet. Dropped listings are
+counted under "100+ acre filter" in the data-source status.
