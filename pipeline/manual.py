@@ -15,7 +15,10 @@ import scrape
 
 UA = scrape.UA
 EDIT_KEYS = ["name", "address", "city", "county", "zip", "lat", "lon", "acres", "parcels", "owner", "zoning",
-             "price_total", "price_per_acre", "electric", "gas", "water", "sewer", "telecom", "description", "url"]
+             "price_total", "price_per_acre", "electric", "gas", "water", "sewer", "telecom", "description", "url",
+             "appraised_value", "water_sewer_detail", "substation_detail"]
+# Optional free-text facts shown on the Site data tab; set by hand (edits) or by a bot (extra). Not scored.
+OPTIONAL = ["appraised_value", "water_sewer_detail", "substation_detail"]
 TRACKED = ["address", "city", "county", "lat", "acres", "parcels", "owner", "zoning", "price", "electric", "gas",
            "water", "sewer", "telecom"]
 CENSUS = "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress"
@@ -250,6 +253,10 @@ def build(sid, doc, G):
         if k == "contacts": rec["contacts"] = v + rec["contacts"]
         elif isinstance(v, dict) and isinstance(rec.get(k), dict): rec[k] = {**rec[k], **v}
         else: rec[k] = v
+    for k in OPTIONAL:                  # hand edits win over bot-supplied extras
+        v = edits.get(k) if edits.get(k) not in (None, "") else extra.get(k)
+        if v not in (None, ""): rec[k] = v; prov[k] = "entered by hand" if edits.get(k) not in (None, "") else "added by bot (extra)"
+    if doc.get("_fp_prev"): rec["_fp_prev"] = doc["_fp_prev"]     # last floodplain result, used if FEMA is down
     if rec["lat"] is None: rec["geo_note"] = "No coordinates" + (" (input was " + kind + ")" if kind != "none" else "")
     if G:
         scrape.geo_apply(rec, G)

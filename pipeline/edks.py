@@ -658,6 +658,32 @@ def cmd_delete_manual(a):
         if dref.get().exists: dref.delete(); n += 1
     print(f"[edks] deleted {n} docs for {a.site_id}")
 
+# Fields each enrich step produces. If a step fails, the prior record's values are kept rather than dropped.
+STEP_FIELDS = {"community": ["community", "annexation", "_issues"], "tracker": ["outreach"]}
+
+def keep_prior(sites, prev, ok):
+    """Copy fields from each site's last good record when the step that makes them failed (or was skipped),
+    so a failed step never wipes e.g. an outreach plan. Returns the number of sites touched."""
+    n = 0
+    for r in sites:
+        p = prev.get(r.get("id")) or {}
+        got = []
+        for step, fields in STEP_FIELDS.items():
+            if ok.get(step, True): continue
+            for f in fields:
+                if f in p and (f != "annexation" or not r.get(f)):
+                    r[f] = p[f]; got.append(f)
+        if "community" in got and isinstance((r.get("community") or {}).get("score"), (int, float)):
+            # infrastructure is fresh; re-blend with the kept community score (same weights/cap as community.py)
+            r["infra_score"] = r.get("score")
+            r["overall"] = round(0.6 * (r.get("score") or 0) + 0.4 * r["community"]["score"])
+            fpp = (r.get("floodplain") or {}).get("pct")
+            if fpp is not None and fpp > 50: r["overall"] = min(r["overall"], 30)
+        if got:
+            r["stale"] = sorted({s for s, v in ok.items() if not v})
+            n += 1
+    return n
+
 def cmd_enrich(a):
     """Enrich queued manual sites (status pending) from public sources; --all rescores every manual site.
     Logs counts only (CI logs are public)."""
@@ -677,13 +703,23 @@ def cmd_enrich(a):
         print(len(todo)); return
     if not todo:
         print("[edks] enrich: nothing queued"); return
+    # Steps run as subprocesses with cwd=HERE, so relative paths must be made absolute first
+    # (a relative --tracker-review once made the tracker step fail and wiped outreach plans).
+    for k in ("cache_dir", "geo_cache_dir", "contacts", "curated", "local_review", "state", "tracker_review", "tracker_state"):
+        if getattr(a, k, None): setattr(a, k, os.path.abspath(getattr(a, k)))
     import scrape, manual
     G = None
-    if any((x.get("input") or (x.get("edits") or {}).get("lat")) for _, _, x in todo):
+    if any((x.get("input") or (x.get("edits") or {}).get("lat") or (x.get("extra") or {}).get("site_geojson")) for _, _, x in todo):
         G = scrape.load_geo(a.geo_cache_dir or a.cache_dir or tempfile.mkdtemp())
+        G["flood_cache"] = None     # manual sites are private: never write their floodplain lookups to the (public) actions cache
+    prev = {}                       # last good record per site, to keep fields a failed step could not recompute
+    for _, sid, x in todo:
+        try: prev[sid] = json.loads(x.get("j") or "{}")
+        except Exception: prev[sid] = {}
     curated = json.load(open(a.contacts)) if a.contacts and os.path.exists(a.contacts) else {}
     recs, meta, xtra = [], {}, {}
     for scol, sid, x in todo:
+        if (prev.get(sid) or {}).get("floodplain"): x = {**x, "_fp_prev": prev[sid]["floodplain"]}
         try:
             r = manual.build(sid, x, G)
         except Exception as e:
@@ -698,6 +734,15 @@ def cmd_enrich(a):
         def run(args, label):
             p = subprocess.run([sys.executable, "-W", "ignore"] + args, capture_output=True, text=True, cwd=HERE)
             print(f"[edks] enrich: {label} {'ok' if p.returncode == 0 else 'failed (exit %d)' % p.returncode}")
+            if p.returncode != 0:
+                lines = (p.stderr or p.stdout or "").strip().splitlines()
+                if os.environ.get("GITHUB_ACTIONS"):   # public repo: CI logs get the error type only, never site data
+                    last = lines[-1] if lines else ""
+                    print("[edks]   " + (last.split(":", 1)[0] if last else "no output"))
+                else:
+                    print("\n".join("[edks]   " + ln for ln in lines[-12:]))
+            return p.returncode == 0
+        ok = {}
         def tmpcopy(f):
             if not f or not os.path.exists(f): return None
             d = os.path.join(tmp, os.path.basename(f)); shutil.copy(f, d); return d
@@ -707,15 +752,27 @@ def cmd_enrich(a):
             args = [os.path.join(HERE, "community.py"), "--data", data, "--curated", a.curated, "--state", st]
             if a.cache_dir: args += ["--cache-dir", os.path.join(a.cache_dir, "community")]
             if a.local_review: args += ["--local-review", a.local_review]
-            run(args, "community")
-        if a.tracker_review and os.path.exists(a.tracker_review):
+            ok["community"] = run(args, "community")
+        else:
+            ok["community"] = False; print("[edks] enrich: community skipped (--curated file not found)")
+        if ok["community"] and a.tracker_review and os.path.exists(a.tracker_review):
             ts = tmpcopy(a.tracker_state) or os.path.join(tmp, "tracker_state.json")
             if not os.path.exists(ts): json.dump({}, open(ts, "w"))
-            run([os.path.join(HERE, "tracker.py"), "--data", data, "--review", a.tracker_review, "--state", ts, "--offline"], "tracker")
+            ok["tracker"] = run([os.path.join(HERE, "tracker.py"), "--data", data, "--review", a.tracker_review, "--state", ts, "--offline"], "tracker")
+        else:
+            ok["tracker"] = False
+            if ok["community"]: print("[edks] enrich: tracker skipped (--tracker-review file not found)")
         out = json.load(open(data))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    if getattr(a, "dry_run", False):
+        keep_prior(out["sites"], prev, ok)
+        dst = a.dry_run if isinstance(a.dry_run, str) else os.path.join(tempfile.gettempdir(), "enrich-dry.json")
+        json.dump(out, open(dst, "w"), ensure_ascii=False)
+        print(f"[edks] enrich: dry run, nothing written ({len(out['sites'])} records in {dst})"); return
     issues = out.get("issues") or {}
+    kept = keep_prior(out["sites"], prev, ok)
+    if kept: print(f"[edks] enrich: kept prior fields on {kept} site(s) because a step failed")
     n = 0
     for r in out["sites"]:
         sid = r["id"]; scol, stamp = meta[sid]
@@ -764,6 +821,7 @@ def main():
     p = sp.add_parser("add-manual"); p.add_argument("--spec", required=True)
     p = sp.add_parser("delete-manual"); p.add_argument("site_id")
     p = sp.add_parser("enrich"); p.add_argument("--all", action="store_true"); p.add_argument("--site"); p.add_argument("--count", action="store_true")
+    p.add_argument("--dry-run", nargs="?", const=True, default=False, help="run every step but write nothing (optional: output JSON path)")
     for k in ("--cache-dir", "--geo-cache-dir", "--contacts", "--curated", "--local-review", "--state", "--tracker-review", "--tracker-state"):
         p.add_argument(k)
     p = sp.add_parser("verify"); p.add_argument("--min-admins", type=int, default=1); p.add_argument("--rules")

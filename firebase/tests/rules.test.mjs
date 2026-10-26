@@ -164,6 +164,7 @@ test('hand edits: only edits/status on manual docs, never pipeline docs', async 
   const db = as(EDITOR);
   const ed = (extra = {}) => Object.assign({ edits: { acres: 50.5, zoning: 'I-3' }, edited_by: EDITOR, edited: serverTimestamp(), status: 'pending' }, extra);
   await assertSucceeds(updateDoc(doc(db, 'sites/m-done1'), ed()));
+  await assertSucceeds(updateDoc(doc(db, 'sites/m-done1'), ed({ edits: { appraised_value: '$100,000 (county ag value)', water_sewer_detail: 'none', substation_detail: '115 kV at NW corner' } })));
   await assertFails(updateDoc(doc(db, 'sites/m-done1'), ed({ j: '{"score":100}' })));
   await assertFails(updateDoc(doc(db, 'sites/m-done1'), ed({ score: 100 })));
   await assertFails(updateDoc(doc(db, 'sites/m-done1'), ed({ edited_by: ADMIN })));

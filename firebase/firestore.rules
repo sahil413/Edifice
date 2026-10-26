@@ -27,7 +27,8 @@ service cloud.firestore {
     function editsOk(m) { return m is map && m.size() <= 30 && m.keys().hasOnly(editKeys()); }
     function editKeys() {
       return ['name', 'address', 'city', 'county', 'zip', 'lat', 'lon', 'acres', 'parcels', 'owner', 'zoning',
-              'price_total', 'price_per_acre', 'electric', 'gas', 'water', 'sewer', 'telecom', 'description', 'url'];
+              'price_total', 'price_per_acre', 'electric', 'gas', 'water', 'sewer', 'telecom', 'description', 'url',
+              'appraised_value', 'water_sewer_detail', 'substation_detail'];
     }
     function manualCreateOk(id) {
       let d = request.resource.data;

@@ -22,6 +22,7 @@ from pyproj import Transformer
 from shapely.geometry import LineString, MultiLineString, Point
 from shapely.strtree import STRtree
 from pricing import price_info  # asking price / $ per acre (listing-stated only)
+import floodplain              # FEMA NFHL 100-yr floodplain share (penalty)
 
 UA = "Mozilla/5.0 (compatible; EdificeSitesBot/1.0; +https://edifice.vc)"
 CERT_LIST_URL = "https://www.kansascommerce.gov/program/business-incentives-and-services/certified-sites-program/sites/"
@@ -328,6 +329,7 @@ SCORING = {
     "scale": {"max": 15, "rule": "Acres: 500+ 15, 250+ 12, 150+ 9, 100+ 6, 50+ 3, else 1. Acreage over 20,000 is treated as a data-entry error and scored 6."},
     "fiber": {"max": 10, "rule": "Telecom provider listed 5, fiber mentioned in listing +3, redundancy/speed flag +2."},
     "water": {"max": 10, "rule": "Water provider listed 5, water line/main ≥8\" +2, sewer provider listed 3."},
+    "floodplain": {"max": 0, "penalty": True, "rule": floodplain.RULE},
 }
 
 def score(rec):
@@ -361,10 +363,21 @@ def score(rec):
     w = (5 if rec["water"]["provider"] else 0) + (2 if max(rec["water"]["line_in"] or 0, rec["water"]["main_in"] or 0) >= 8 else 0) + (3 if rec["sewer"]["provider"] else 0)
     parts["water"] = (w, (rec["water"]["provider"] or "No water provider listed") + (" · sewer listed" if rec["sewer"]["provider"] else ""))
     total = round(sum(v for v, _ in parts.values()))
-    rec["score"] = min(100, total)
     rec["score_parts"] = {k: {"pts": round(v, 1), "max": SCORING[k]["max"], "why": why} for k, (v, why) in parts.items()}
     top = sorted(parts.items(), key=lambda kv: -kv[1][0] / SCORING[kv[0]]["max"])
     rec["score_summary"] = "; ".join(why for _, (_, why) in top[:3])
+    fp = rec.get("floodplain") or {}
+    if fp.get("pct") is not None:      # FEMA 100-yr floodplain: a penalty, never a bonus
+        pen = floodplain.penalty(fp["pct"]); pct = fp["pct"]
+        total = total - pen
+        if pct > 50: total = min(total, floodplain.CAP_OVER_HALF)
+        why = (f"{pct:g}% of the site in the FEMA 100-yr floodplain (SFHA{', zone ' + '/'.join(fp.get('zones') or []) if fp.get('zones') else ''})"
+               f" · {fp.get('method', '')}" + (" · capped: over half the site floods" if pct > 50 else "" if pen else f" · under {floodplain.MIN_PCT}%: no penalty"))
+        rec["score_parts"]["floodplain"] = {"pts": -pen, "max": 0, "penalty": True, "pct": pct, "why": why}
+        if pen: rec["score_summary"] = f"{pct:g}% in 100-yr floodplain; " + rec["score_summary"]
+    elif fp:
+        rec["score_parts"]["floodplain"] = {"pts": 0, "max": 0, "penalty": True, "pct": None, "why": fp.get("note") or "Floodplain not checked"}
+    rec["score"] = max(0, min(100, round(total)))
 
 # ---------------------------------------------------------------- contacts
 EVERGY_RX = re.compile(r"evergy|westar|kcp&?l|kansas city power|kansas gas (and|&) electric|kg&e", re.I)
@@ -438,12 +451,16 @@ def load_geo(cache_dir):
     sub_trees = {c: Nearest([p for p, s in sub_pts if (s["kv"] or 0) >= c], [s for p, s in sub_pts if (s["kv"] or 0) >= c]) for c in line_classes}
     sub_any = Nearest([p for p, s in sub_pts], [s for p, s in sub_pts])
 
-    return {"line_classes": line_classes, "line_trees": line_trees, "gas_tree": gas_tree, "sub_trees": sub_trees, "sub_any": sub_any}
+    return {"line_classes": line_classes, "line_trees": line_trees, "gas_tree": gas_tree, "sub_trees": sub_trees, "sub_any": sub_any,
+            "flood": True, "flood_cache": None}
 
 def geo_apply(r, G):
     """Power/gas proximity for one record (needs lat/lon), then the infrastructure score."""
     line_classes, line_trees, gas_tree, sub_trees, sub_any = G["line_classes"], G["line_trees"], G["gas_tree"], G["sub_trees"], G["sub_any"]
     r["power"] = {"lines_by_class": [], "subs_by_class": []}; r["gasline"] = {}
+    if G.get("flood", True) and "floodplain" not in r and (r["lat"] is not None or r.get("site_geojson")):
+        r["floodplain"] = floodplain.measure(r, G.get("flood_cache"), r.pop("_fp_prev", None))
+    r.pop("_fp_prev", None)
     if r["lat"] is None:
         r["geo_note"] = r.get("geo_note") or "No coordinates on listing"; score(r); return
     x, y = TO_M.transform(r["lon"], r["lat"]); pt = Point(x, y)
@@ -541,6 +558,11 @@ def main():
     recs = kept
 
     G = load_geo(args.geo_cache_dir or args.cache_dir)
+    # FEMA floodplain, in parallel and time-boxed; public listings only, cache holds hashes + % (no coordinates)
+    G["flood_cache"] = args.geo_cache_dir or args.cache_dir
+    t0 = time.time()
+    ok, bad = floodplain.apply_all(recs, G["flood_cache"])
+    STATUS["FEMA NFHL floodplain (ArcGIS)"] = {"ok": ok >= bad, "detail": f"{ok} sites checked, {bad} not checked ({time.time() - t0:.0f} s)", "url": floodplain.NFHL}
     for r in recs:
         geo_apply(r, G)
 

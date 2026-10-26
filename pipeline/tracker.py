@@ -299,7 +299,7 @@ def apply(D, items, today):
                 w = recency(i.get("date"), today) * (1.0 if i.get("jurisdiction") == gov else 0.5)
                 if i["tag"] == "negative": neg += 10 * w
                 elif i["tag"] == "positive": Sv += 6 * w
-            Sv = max(0.0, min(100.0, Sv - min(neg, 60)))
+            Sv = max(0.0, min(100.0, Sv - min(neg, 60) + c["news"].get("manual_adj", 0)))
         E = c["edc"]["score"]
         if not lines and not moved:  # nothing applies — keep community.py's numbers exactly (no rounding drift)
             c["laws"]["score"], c["news"]["score"], c["score"], s["overall"] = base["R"], base["Sv"], base["C"], base["overall"]
@@ -316,6 +316,8 @@ def apply(D, items, today):
         c["news"]["moved_to_stance"] = [i["id"] for i in moved]
         c["score"] = round(C)
         s["overall"] = round(wi * (s.get("infra_score") if s.get("infra_score") is not None else s["score"]) + wc * C)
+        fpp = (s.get("floodplain") or {}).get("pct")
+        if fpp is not None and fpp > 50: s["overall"] = min(s["overall"], 30)   # same floodplain cap as community.py
         corr = [a for a in applied if a["signal"] == "corridor" and a["points"] > 0]
         pos_ = [a for a in applied if a["points"] > 0]
         c["stance"] = {"points": cap, "corridor": bool(corr), "items": applied,

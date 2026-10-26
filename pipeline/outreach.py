@@ -23,8 +23,8 @@ def cite(url, title="", outlet="", date=""):
     return {"url": url, "title": title, "outlet": outlet, "date": date}
 
 def pick_contact(s, roles):
-    for r in roles:
-        for c in s.get("contacts", []):
+    for r in roles:                     # a contact marked primary (e.g. the official already engaged) goes first
+        for c in sorted(s.get("contacts", []), key=lambda c: 0 if c.get("primary") else 1):
             if c.get("role") == r and (c.get("name") or c.get("org")): return c
     return None
 
@@ -57,6 +57,9 @@ MITIGATION = {
     "rules": "Suggested: get the draft or adopted data-center standards from planning staff and design to them before the first meeting.",
     "cup": "Suggested: plan for a public hearing; book a pre-application meeting with planning staff first.",
     "prohibited": "Suggested: a rezoning or text amendment would be needed; confirm with planning staff whether one would be entertained before spending on diligence.",
+    "floodplain": ("Suggested: before more outreach, have the civil engineer size the buildable area outside the 100-yr floodplain "
+                   "and price fill/elevation; ask the county floodplain administrator what a CLOMR/LOMR-F or floodplain "
+                   "development permit would take."),
     "opposition": "Suggested: hold a neighbor meeting before any filing and publish what the project would pay in local taxes.",
 }
 
@@ -74,7 +77,7 @@ def plan(s, D, ibj, titems_by_jur, prec):
     issues = D.get("issues") or {}
     st_items = (c.get("stance") or {}).get("items", [])
     # ---------------- stance
-    reg = {j: latest_reg(ibj, j) for j in jurs}
+    reg = {j: [i for i in latest_reg(ibj, j) if i.get("site_only") in (None, s.get("id"))] for j in jurs}
     lstat = c["laws"].get("status")
     def has(j, sts): return any(i["reg_status"] in sts for i in reg[j][:3])
     gov_active = bool(reg[gov]) and reg[gov][0]["reg_status"] == "active"
@@ -104,7 +107,11 @@ def plan(s, D, ibj, titems_by_jur, prec):
     # ---------------- contacts (EDC → city manager → county commission → utility → state)
     order = []
     edc = pick_contact(s, ["Local economic development", "Listing contact (economic development)"])
-    if edc: order.append({"step": "Local economic development", "contact": edc, "ask": None})
+    if edc:
+        order.append({"step": "Local economic development", "contact": edc, "ask": None})
+        for k in s.get("contacts", []):   # other named EDC contacts already on file
+            if k is not edc and k.get("role") in ("Local economic development",) and k.get("name"):
+                order.append({"step": "Local economic development (also on file)", "contact": k, **({"note": k["note"]} if k.get("note") else {})})
     else:
         e = c.get("edc") or {}
         order.append({"step": "Local economic development", "contact": {"org": e.get("org") or "none identified", "source": e.get("url")} if e.get("org") else None,
@@ -133,6 +140,9 @@ def plan(s, D, ibj, titems_by_jur, prec):
         if u: order.append({"step": f"Utility ({prov})", "contact": u})
         elif real: order.append({"step": f"Utility ({prov})", "contact": {"org": prov}, "note": "no named contact on file"})
         else: order.append({"step": "Utility", "contact": None, "note": f"electric provider not identified in the listing (listed as “{prov}”) — confirm with the EDC"})
+    for k in s.get("contacts", []):       # site engineering partners (manual sites)
+        if re.search(r"engineer", k.get("role") or "", re.I) and (k.get("name") or k.get("org")):
+            order.append({"step": "Civil / site engineering", "contact": k, **({"note": k["note"]} if k.get("note") else {})})
     stc = pick_contact(s, ["State site-selection contact"])
     if stc: order.append({"step": "State (Kansas Commerce site selection)", "contact": stc})
     # ---------------- lead angle
@@ -188,6 +198,11 @@ def plan(s, D, ibj, titems_by_jur, prec):
         if i["url"] in seen: continue
         t = risk_type(i["title"] + " " + (i.get("summary") or ""))
         risks.append({"type": t, "text": f"News ({i.get('date') or 'n.d.'}): {i['title']}", **cite(i["url"], i["title"], i.get("outlet", "")), "mitigation": MITIGATION.get(t, MITIGATION["opposition"])})
+    fp = s.get("floodplain") or {}
+    if fp.get("pct") is not None and fp["pct"] >= 25:
+        risks.insert(0, {"type": "floodplain", "text": f"Floodplain: {fp['pct']:g}% of the site is in the FEMA 100-yr floodplain"
+                                                       + (f" (zone {', '.join(fp.get('zones') or [])})" if fp.get("zones") else "") + f" — {fp.get('method', '')}",
+                         **cite(fp.get("url") or "", "FEMA National Flood Hazard Layer"), "mitigation": MITIGATION["floodplain"]})
     for r in risks:
         for p in prec.get(r["type"], [])[:1]:
             r["precedent"] = {"text": p["text"], "url": p["url"]}
@@ -217,7 +232,10 @@ def plan(s, D, ibj, titems_by_jur, prec):
         return out
     ev = dd(ev, lambda x: (x.get("url"), x["text"].split(": ", 1)[-1]))
     angles = dd(angles, lambda x: x["text"])
-    return {"stance": {"label": label, "evidence": ev[:6]}, "contacts": order, "angles": angles[:4], "risks": risks[:6], "next_step": nxt}
+    out = {"stance": {"label": label, "evidence": ev[:6]}, "contacts": order, "angles": angles[:4], "risks": risks[:6], "next_step": nxt}
+    hist = [h for h in (s.get("outreach_log") or []) if isinstance(h, dict) and h.get("text")]
+    if hist: out["history"] = sorted(hist, key=lambda h: h.get("date") or "")   # what has already happened (hand/bot-entered)
+    return out
 
 def annotate(D):
     issues = D.get("issues") or {}
@@ -237,8 +255,9 @@ def annotate(D):
         if not c: continue
         jurs = [c["jurisdictions"]["governing"]] + c["jurisdictions"]["secondary"]
         tracked = [j for j in jurs if j in tbj]
-        if s["id"] not in top and not tracked: continue
+        if s["id"] not in top and not tracked and not s.get("manual"): continue
         p = plan(s, D, ibj, tbj, prec)
-        p["included_because"] = ", ".join(x for x in [f"top {TOP_N} overall" if s["id"] in top else "", ("tracked jurisdiction: " + ", ".join(jname(j) for j in tracked)) if tracked else ""] if x)
+        p["included_because"] = ", ".join(x for x in [f"top {TOP_N} overall" if s["id"] in top else "", ("tracked jurisdiction: " + ", ".join(jname(j) for j in tracked)) if tracked else "",
+                                                      "hand-added deal" if s.get("manual") else ""] if x)
         s["outreach"] = p; n += 1
     return n
