@@ -64,7 +64,12 @@ def _adc():
             or os.environ.get("EDIFICE_ADC_METADATA")):
         return None  # no ADC configured: skip the slow metadata-server probe and fall back to the gcloud login
     try:
-        cred, _ = google.auth.default(scopes=scopes, quota_project_id=project_id())
+        cred, _ = google.auth.default(scopes=scopes)
+        # A quota project only for end-user ADC; federated/service-account callers bill to their own project
+        # (setting one there makes the WIF impersonation call need serviceusage.services.use).
+        from google.oauth2 import credentials as _uc
+        if isinstance(cred, _uc.Credentials) and not cred.quota_project_id:
+            cred = cred.with_quota_project(project_id())
     except DefaultCredentialsError:
         return None
     sa = os.environ.get("EDIFICE_IMPERSONATE_SA")
@@ -242,6 +247,38 @@ def cmd_users(a):
         col.document(em).delete()
         print(f"[edks] removed {em}")
 
+def cmd_verify(a):
+    """CI-safe health check: counts only (no emails or site data are printed)."""
+    client = db()
+    roles = [((d.to_dict() or {}).get("role")) for d in client.collection("users").stream()]
+    admins = roles.count("admin")
+    sites = sum(1 for _ in client.collection("sites").select([]).stream())
+    meta = sorted(d.id for d in client.collection("meta").stream())
+    print(f"[verify] users={len(roles)} admins={admins} sites={sites} meta={','.join(meta)}")
+    ok = admins >= a.min_admins and sites > 0
+    if a.rules:
+        import json as _j, urllib.request
+        from google.auth.transport.requests import Request
+        cred = client._credentials
+        if not cred.valid:
+            cred.refresh(Request())
+        base = f"https://firebaserules.googleapis.com/v1/projects/{project_id()}"
+        hdr = {"Authorization": "Bearer " + cred.token}
+        def get(u):
+            return _j.load(urllib.request.urlopen(urllib.request.Request(u, headers=hdr)))
+        try:
+            rel = get(base + "/releases/cloud.firestore")
+            live = get("https://firebaserules.googleapis.com/v1/" + rel["rulesetName"])["source"]["files"][0]["content"]
+            same = live == open(a.rules, encoding="utf-8").read()
+            print(f"[verify] rules released={rel['rulesetName'].rsplit('/', 1)[-1]} matches file: {same}")
+            ok = ok and same
+        except Exception as e:
+            body = e.read()[:200].decode("utf-8", "replace") if hasattr(e, "read") else ""
+            print(f"[verify] rules check failed: {type(e).__name__} {getattr(e, 'code', '')} {body}")
+            ok = False
+    if not ok:
+        die("verification failed")
+
 # ------------------------------------------------------------------ events
 def all_events(client):
     out = []
@@ -385,10 +422,11 @@ def main():
     p = sp.add_parser("dump"); p.add_argument("--out")
     p = sp.add_parser("push-learnings"); p.add_argument("file")
     p = sp.add_parser("import"); p.add_argument("file")
+    p = sp.add_parser("verify"); p.add_argument("--min-admins", type=int, default=1); p.add_argument("--rules")
     a = ap.parse_args()
     {"push": cmd_push, "users": cmd_users, "followups": cmd_followups, "done": lambda a: cmd_status(a, "done"),
      "reopen": lambda a: cmd_status(a, "open"), "note": cmd_note, "followup": cmd_followup, "dump": cmd_dump,
-     "push-learnings": cmd_push_learnings, "import": cmd_import}[a.cmd](a)
+     "push-learnings": cmd_push_learnings, "import": cmd_import, "verify": cmd_verify}[a.cmd](a)
 
 if __name__ == "__main__":
     main()
