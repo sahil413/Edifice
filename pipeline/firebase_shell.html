@@ -2,7 +2,7 @@
      signs in, the data and the private draft engine are read from Firestore and the app starts. -->
 <style>
 #gate{position:fixed;inset:0;z-index:100;background:var(--bg);background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:72px 72px;display:flex;align-items:center;justify-content:center;padding:24px}
-#gate[hidden]{display:none}
+#gate[hidden],#gate [hidden]{display:none!important}
 #gate .box{width:min(440px,100%);border:1px solid var(--line);background:var(--bg);padding:28px 24px}
 #gate h1{font-size:clamp(32px,8vw,48px);margin:18px 0 8px}
 #gate .btn{cursor:pointer;background:none;margin-top:18px}
