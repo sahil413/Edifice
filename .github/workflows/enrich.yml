@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 30
     env:
       SITES_PASSWORD: ${{ secrets.SITES_PASSWORD }}
+      PASSWORD_ENV: SITES_PASSWORD
       FIREBASE_PROJECT: ${{ fromJSON(vars.FIREBASE_WEB_CONFIG || '{"projectId":""}').projectId }}
       EDKS_GEO_MAX_AGE_H: "168"   # reuse the daily refresh's public geodata instead of re-pulling it
     steps:
