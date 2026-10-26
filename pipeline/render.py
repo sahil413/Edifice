@@ -49,6 +49,12 @@ def verify(enc_path, data):
         if len(r.get("address") or "") >= 8: probes.add(r["address"])
         for c in r.get("contacts", []):
             if c.get("email"): probes.add(c["email"])
+    for s in data["sites"]:
+        o = s.get("outreach")
+        if o and len(o["next_step"]["text"]) >= 30: probes.add(o["next_step"]["text"][:60])
+    for it in (data.get("tracker") or {}).get("items", []):
+        if len(it.get("summary") or "") >= 30: probes.add(it["summary"][:60])
+    if data.get("tracker"): probes |= {"moved_to_stance", "included_because"}
     if data.get("storage"): probes |= {"sf_per_capita", "zoning_rules", "own_facility"}
     probes |= {"__DATA__", "score_parts", "lines_by_class", "community_rules", "annexation_counts", "infra_score"}
     leaks = [p for p in probes if p in html]

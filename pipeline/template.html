@@ -85,6 +85,7 @@ p.desc{color:#ccc;font-size:14px;line-height:1.5}
 .fit{display:inline-block;font:11px 'JetBrains Mono',monospace;padding:2px 5px;margin:2px 4px 2px 0;border:1px solid var(--line);color:#ccc}.fit.y{border-color:#6fcf7f;color:#6fcf7f}.fit.m{border-color:#c9a227;color:#c9a227}.fit.n{color:#666;text-decoration:line-through}
 .mini{display:flex;gap:3px;margin-top:8px}.mini i{display:block;height:4px;background:var(--acc)}.mini span{flex:1;background:#222;height:4px;display:block}
 details.pt{border:1px solid var(--line);padding:10px 12px;margin:0 0 8px}details.pt summary{display:flex;justify-content:space-between;text-transform:none;letter-spacing:0;font:14px 'Jost',sans-serif}details.pt summary .mono{color:var(--acc)}
+.emgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:640px){.emgrid{grid-template-columns:1fr}}.emgrid select{display:block;width:100%;margin-top:4px;background:#000;color:#fff;border:1px solid var(--line);padding:9px 8px;font:13px 'JetBrains Mono',monospace;border-radius:0}.emcc{margin-top:8px}.emcc .cc{display:block;font-size:13px;color:#ccc;margin:4px 0}.emprev{border:1px solid var(--line);padding:8px 10px;margin:4px 0 8px;font:13px 'Jost',sans-serif;color:#ddd;white-space:pre-wrap;word-break:break-word}button.btn{background:#000;cursor:pointer}
 </style>
 </head>
 <body>
@@ -179,7 +180,7 @@ function an(s){return s.annexation||{status:'unknown'}}
 function cm(s){return s.community||null}
 function annexBadge(s){const a=an(s);let b='';if(a.status==='annexed')b='<span class="badge ann">Annexed · '+esc(a.place_base||a.place||s.city)+'</span>';else if(a.status==='unincorporated')b='<span class="badge unc">Unincorporated'+(a.nearest_base&&a.nearest_city_mi!=null?' · '+fmt(a.nearest_city_mi)+' mi to '+esc(a.nearest_base):'')+'</span>';else b='<span class="badge unc">City limits unknown</span>';if(a.pending)b+='<span class="badge pend">Pending annexation</span>';else if(a.listing_says_annexed)b+='<span class="badge pend">Listing says in city limits</span>';else if(a.annex_possible)b+='<span class="badge pend">Annexation possible</span>';return b}
 function subLine(s){const c=cm(s);return c?`Infra <b>${s.infra_score}</b> · Community <b>${c.score}</b> (Laws ${c.laws.score} · News ${c.news.score} · EDC ${c.edc.score})`:`Infra <b>${s.infra_score}</b>`}
-function regFlag(s){const c=cm(s);if(!c)return '';const st=c.laws.status;return st==='prohibited'?'<span class="badge reg">DC ban/moratorium</span>':st==='proposed'?'<span class="badge warn">DC rules proposed</span>':st==='cup'?'<span class="badge pend">CUP/SUP needed</span>':st==='by_right'?'<span class="badge ann">DC allowed by right</span>':''}
+function regFlag(s){const c=cm(s);if(!c)return '';const st=c.laws.status;const sb=(c.stance||{}).badge?'<span class="badge ann">'+esc(c.stance.badge)+'</span>':'';return sb+(st==='prohibited'?'<span class="badge reg">DC ban/moratorium</span>':st==='proposed'?'<span class="badge warn">DC rules proposed</span>':st==='cup'?'<span class="badge pend">CUP/SUP needed</span>':st==='by_right'?'<span class="badge ann">DC allowed by right</span>':'')}
 function badges(s){let b='';if(s.is_new)b+='<span class="badge">New</span>';else if(s.is_changed)b+='<span class="badge chg">Updated</span>';if(s.certified)b+='<span class="badge cert">Certified</span>';if(s.acres_suspect)b+='<span class="badge warn">Check acres</span>';if(pr(s).flagged&&!s.acres_suspect)b+='<span class="badge warn">Check price</span>';return b}
 function render(){
  const v={};F.forEach(k=>{const el=$(k);v[k]=el.type==='checkbox'?el.checked:el.value});localStorage.setItem('edks_f',JSON.stringify(v));
@@ -215,7 +216,10 @@ function openSite(id){const s=S.find(x=>x.id===id);if(!s)return;history.replaceS
  <div class="sec"><h4>Power &amp; gas proximity (GIS)</h4>${kv([['Transmission',lines||'—'],['Substations',subHtml||'—'],['Gas pipeline',s.gasline?`${esc(s.gasline.operator)} (${esc(s.gasline.type)}) · ${fmt(s.gasline.mi)} mi`:'—']])}</div>
  <div class="sec"><h4>Utilities (as listed)</h4>${kv([['Electric',el||'—'],['Natural gas',[g.provider,g.line_in?g.line_in+'″ line':'',g.main_in?g.main_in+'″ main':'',g.psi?g.psi+' psi':''].filter(Boolean).map(esc).join(' · ')||'—'],['Water',[w.provider,w.line_in?w.line_in+'″ line':'',w.peak_mgd?w.peak_mgd+' MGD peak':''].filter(Boolean).map(esc).join(' · ')+(w.capability?'<br><small>'+esc(w.capability)+'</small>':'')||'—'],['Sewer',[sw.provider,sw.line_in?sw.line_in+'″ line':''].filter(Boolean).map(esc).join(' · ')||'—'],['Telecom / fiber',[t.provider,t.capability].filter(Boolean).map(esc).join(' · ')||'—']])}</div>
  <div class="sec"><h4>Site</h4>${kv([['Address',esc([s.address,s.city,'KS',s.zip].filter(Boolean).join(', '))],['Zoning',esc(s.zoning)||'—'],['Highway',esc([h.interstate&&`${h.interstate} ${h.interstate_mi!=null?fmt(h.interstate_mi)+' mi':''}`,h.highway&&`${h.highway} ${h.highway_mi!=null?fmt(h.highway_mi)+' mi':''}`].filter(Boolean).join(' · '))||'—'],['Rail',esc(r.served?'Served — '+(r.railroads||[]).join(', ')+(r.shortline?' · '+r.shortline:''):(r.railroads&&r.railroads.length?r.railroads.join(', '):'—'))],['Sources',esc((s.sources||[]).join(', '))],['First seen',esc(s.first_seen)],['Listing updated',esc((s.lois_modified||'').slice(0,10))]])}${s.description?`<p class="desc">${esc(s.description)}</p>`:''}</div>
+ ${outreachSec(s)}
+ ${emailSec('land',s,landContacts(s))}
  <div class="sec"><h4>Who to contact</h4>${contacts||'—'}</div>`;
+ emUpdate();
  if(!dlg.open)dlg.showModal();dlg.scrollTop=0;
 }
 function W(){return (D.weights||{overall:{infrastructure:.6,community:.4},community:{laws:.45,news:.30,edc:.25}})}
@@ -253,6 +257,7 @@ function openPanel(id,which){const s=S.find(x=>x.id===id);const c=cm(s);if(!c)re
  let body=`<div class="sec"><h4>How this score was built</h4><ul class="why">${(sc.why||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><small class="src">${esc((D.community_rules||{})[which]||'')}</small></div>`;
  if(which==='laws'){const L=c.laws;const reg=all.filter(i=>i.kind==='regulatory');
   body+=`<div class="sec"><h4>Governing jurisdiction</h4>${kv([['Site zoning (listing)',esc(L.site_zoning||s.zoning||'—')]])}${lawBlock(L.jurisdiction,L.status,L.districts,L.summary,L.citations)}</div>`;
+  body+=stanceBlock(c);
   (L.secondary||[]).forEach(x=>{body+=`<div class="sec"><h4>Also counted (could annex / county rules)</h4>${lawBlock(x.jurisdiction,x.status,x.districts,x.summary,x.citations)}</div>`});
   body+=`<div class="sec"><h4>Moratoriums, bans &amp; regulatory items (${reg.length})</h4>${reg.length?reg.map(issueRow).join(''):'<p class="desc">None found for these jurisdictions or statewide.</p>'}</div>`}
  else if(which==='news'){const it=(c.news.items||[]).map(x=>I[x]).filter(Boolean);
@@ -264,6 +269,72 @@ function openPanel(id,which){const s=S.find(x=>x.id===id);const c=cm(s);if(!c)re
   ${(E.pages||[]).length?'<details><summary>Pages reviewed ('+E.pages.length+')</summary><div class="src">'+E.pages.map(p=>lnk(p.url,p.title)).join('<br>')+'</div></details>':''}</div>`}
  $('ipBody').innerHTML=body;ip.showModal();ip.scrollTop=0}
 dlg.addEventListener('close',()=>history.replaceState(null,'',location.pathname));
+const SENDERS=['sahil@edifice.vc','sahil@rattan.org'];
+function getSender(view){try{const v=localStorage.getItem('edks_sender_'+view);if(SENDERS.includes(v))return v}catch(e){}return SENDERS[0]}
+function first(n){n=String(n||'').trim();if(!n||/[@()]/.test(n)||/\b(Dept|Department|Planning|City|County|Office|Development|Partnership|Council|Inc|LLC|Group|Realty|Commerce|Authority|Team|Services|Center)\b/i.test(n))return '';const ws=n.split(/\s+/);if(ws.length<2||ws.length>4)return '';return /^[A-Z][a-z'’-]+$/.test(ws[0])?ws[0]:''}
+function clip(t,n){t=String(t||'').replace(/\s+/g,' ').trim();return t.length<=n?t:t.slice(0,n-1).replace(/[\s,;:]+\S*$/,'')+'…'}
+const EM={};
+function landContacts(s){const out=[],seen=new Set();const add=(c,step)=>{if(!c||!c.email||seen.has(c.email.toLowerCase()))return;seen.add(c.email.toLowerCase());out.push({c,step:step||c.role})};
+ ((s.outreach||{}).contacts||[]).forEach(o=>add(o.contact,o.step));
+ ['Local economic development','Listing contact (economic development)','Listing contact (owner/broker)','Electric provider (as listed)','Utility economic development (Evergy)','State site-selection contact'].forEach(r=>(s.contacts||[]).filter(c=>c.role===r).forEach(c=>add(c,r)));return out}
+function landEmail(s,c){const C=cm(s)||{},O=s.outreach||{},L=C.laws||{};const nm=first(c.name);
+ const loc=[s.address&&!/^\s*$/.test(s.address)?s.address:'',s.city?s.city+', KS':''].filter(Boolean).join(', ');
+ const su=`${s.name} (${fmt(s.acres,0)} ac, ${s.city}, KS): data center site inquiry`;
+ const ang=(O.angles||[])[0];let angle='';
+ if(ang)angle=`One reason it stands out: ${clip(ang.text,230)} (source: ${ang.url}).`;
+ else{const inc=((C.edc||{}).incentives||[]).map(i=>i.type).filter(Boolean);if(inc.length)angle=`I saw that ${C.edc.org} lists ${[...new Set(inc)].join(', ')} incentives (source: ${C.edc.incentives[0].url}).`}
+ const prov=((s.electric||[])[0]||{}).provider;const bl=bestLine(s,115)||bestLine(s,69);
+ let infra=[];if(prov&&/evergy|bpu|board of public utilities|electric|energy|power|co-?op|cooperative|light|municipal|utilit/i.test(prov))infra.push(`the listing names ${prov} as the electric provider`);
+ if(bl)infra.push(`public GIS data puts a ${bl.kv} kV transmission line about ${fmt(bl.mi)} miles from the site`);
+ const zon=s.zoning?`The listing shows ${s.zoning} zoning. `:'';
+ const law=L.status&&L.status!=='unknown'?`Our read of the local code: ${(LAWST[L.status]||L.status).toLowerCase()}. `:'';
+ const P=[`${nm?'Hi '+nm:'Hello'},`,
+ `I'm Sahil Rattan with Edifice, an AI infrastructure company focused on Kansas. I'm looking at ${s.name}${loc&&loc.indexOf(s.name)!==0?' ('+loc+')':' in '+s.city+', KS'}, about ${fmt(s.acres,0)} acres, as a potential data center site.`];
+ if(angle)P.push(angle);if(infra.length)P.push("From what I've found so far, "+infra.join(', and ')+'.');
+ P.push(['A few questions:',`1. Power: what large-load electric capacity could be made available at or near the site, and on what timeline?`,`2. Zoning: ${zon}${law}What approval path would a data center need here?`,`3. Would you have time for a short call or meeting in the next couple of weeks?`].join('\n'));
+ P.push('Thank you,\nSahil Rattan, Edifice');const body=P.join('\n\n');
+ return {su,body}}
+function storEmail(r,c){const nm=first(c.name);const same=r.address&&r.name.trim().toLowerCase()===r.address.trim().toLowerCase();const su=`${r.name}, ${same?r.city_label+', KS':(r.address||r.city_label)}: availability and price`;
+ const price=r.price?`listed at ${money(r.price)}${unitTxt(r)!=='—'?' ('+unitTxt(r)+')':''}`:'with no price listed';
+ const body=[`${nm?'Hi '+nm:'Hello'},`,'',
+ `I'm Sahil Rattan with Edifice. I'm interested in ${same?'the listing at '+r.address+', '+r.city_label+', KS':r.name+' at '+[r.address,r.city_label+', KS'].filter(Boolean).join(', ')} (${sizeTxt(r)}), ${price}.`,
+ '','Could you tell me:','1. Is it still available?',`2. ${r.price?'Is the asking price firm, and what':'What is the asking price, and what'} terms would the seller consider?`,
+ `3. ${r.kind==='land'?'Any known zoning, utility or access constraints for a self-storage use?':'Current occupancy, unit mix and recent operating figures, if they can be shared?'}`,
+ '','Would you have time for a short call this week?','','Thank you,','Sahil Rattan, Edifice'].join('\n');return {su,body}}
+function gmailUrl(from,to,cc,su,body){const q=['authuser='+encodeURIComponent(from),'view=cm','fs=1','to='+encodeURIComponent(to)];if(cc.length)q.push('cc='+encodeURIComponent(cc.join(',')));q.push('su='+encodeURIComponent(su),'body='+encodeURIComponent(body));return 'https://mail.google.com/mail/?'+q.join('&')}
+function mailtoUrl(to,cc,su,body){return 'mailto:'+encodeURIComponent(to).replace(/%40/g,'@')+'?'+(cc.length?'cc='+encodeURIComponent(cc.join(','))+'&':'')+'subject='+encodeURIComponent(su)+'&body='+encodeURIComponent(body)}
+function fitBody(make,lim){let e=make(0);if(e.len<=lim)return e;return make(1)}
+function emailSec(kind,obj,list){if(!list.length||!list.some(x=>x.c.email||x.c.phone))return `<div class="sec"><h4>Draft outbound email</h4><p class="desc">No contact with an email address is on file for this ${kind==='land'?'site':'listing'}.</p></div>`;
+ EM.k=kind;EM.o=obj;EM.l=list;const view=kind==='land'?'land':'storage';const snd=getSender(view);
+ return `<div class="sec" id="emSec"><h4>Draft outbound email</h4><div class="emgrid">
+ <label class="lbl">From<select id="emFrom">${SENDERS.map(x=>`<option${x===snd?' selected':''}>${x}</option>`).join('')}</select></label>
+ <label class="lbl">To<select id="emTo">${list.map((x,i)=>`<option value="${i}">${esc((x.c.name||x.c.org)+' · '+x.step+(x.c.email?' · '+x.c.email:''))}</option>`).join('')}</select></label></div>
+ ${list.filter(x=>x.c.email).length>1?`<details class="emcc"><summary class="lbl">Cc (optional)</summary>${list.map((x,i)=>!x.c.email?'':`<label class="cc"><input type="checkbox" data-cc="${i}"> ${esc((x.c.name||x.c.org)+' · '+x.step)}</label>`).join('')}</details>`:''}
+ <div class="lbl" style="margin-top:8px">Subject</div><div id="emSu" class="emprev"></div><div class="lbl">Body</div><pre id="emBody" class="emprev"></pre>
+ <div class="btns"><a class="btn" id="emGo" target="_blank" rel="noopener">Draft in Gmail ↗</a><button class="btn" id="emCopy" type="button">Copy email</button><a class="lbl" id="emMail" style="align-self:center">or open in mail app</a></div>
+ <small class="src">Opens a draft only — nothing is sent until you press Send in Gmail. Every fact in the draft comes from this site's cited data; review before sending.</small></div>`}
+function emUpdate(){const sec=$('emSec');if(!sec)return;const L=EM.l,i=+$('emTo').value||0,to=L[i].c;
+ const cc=[...sec.querySelectorAll('[data-cc]')].filter(x=>x.checked&&+x.dataset.cc!==i).map(x=>L[+x.dataset.cc].c.email).filter(Boolean);
+ const e=EM.k==='land'?landEmail(EM.o,to):storEmail(EM.o,to);const from=$('emFrom').value;
+ let body=e.body;const toE=to.email||'';let g=gmailUrl(from,toE,cc,e.su,body);
+ while(g.length>1900&&body.length>200){body=body.replace(/\n\nOne reason it stands out:[^\n]*|\n\nFrom what I've found so far,[^\n]*/,'');if(g.length===gmailUrl(from,toE,cc,e.su,body).length)body=body.slice(0,body.length-200);g=gmailUrl(from,toE,cc,e.su,body)}
+ EM.cur={su:e.su,body,to:toE||'(add address)',cc};$('emSu').textContent=e.su;$('emBody').textContent=body;$('emGo').href=g;$('emMail').href=mailtoUrl(toE,cc,e.su,body)}
+document.addEventListener('change',e=>{if(!e.target.closest||!e.target.closest('#emSec'))return;if(e.target.id==='emFrom'){try{localStorage.setItem('edks_sender_'+(EM.k==='land'?'land':'storage'),e.target.value)}catch(x){}}emUpdate()});
+document.addEventListener('click',e=>{if(e.target.id!=='emCopy'||!EM.cur)return;const t=`To: ${EM.cur.to}${EM.cur.cc.length?'\nCc: '+EM.cur.cc.join(', '):''}\nSubject: ${EM.cur.su}\n\n${EM.cur.body}`;const done=()=>{e.target.textContent='Copied';setTimeout(()=>e.target.textContent='Copy email',1600)};
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,()=>fb());else fb();
+ function fb(){const ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';dlg.appendChild(ta);ta.select();ta.setSelectionRange(0,t.length);try{document.execCommand('copy');done()}catch(x){}ta.remove()}});
+function cl(u,t){return u?lnk(u,t||u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]):''}
+function outreachSec(s){const O=s.outreach;if(!O)return '';
+ const ct=c=>c?`<b>${esc(c.name||c.org||'')}</b>${c.title?' · '+esc(c.title):''}${c.name&&c.org?' · '+esc(c.org):''}${c.email?' · <a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':''}${c.phone?' · <a href="'+tel(c.phone)+'">'+esc(c.phone)+'</a>':''}${c.source?' · '+cl(c.source.split(' ; ')[0],'source'):''}`:'';
+ return `<div class="sec"><h4>Outreach plan</h4><small class="src">${esc(O.included_because)}</small>
+ <div class="part"><b>Stance: ${esc(O.stance.label)}</b><ul class="why">${O.stance.evidence.map(x=>`<li>${esc(x.text)} ${cl(x.url,x.outlet||'source')}${x.tracker_url?' · '+lnk(x.tracker_url,'tracker'):''}</li>`).join('')||'<li>No cited local-government position found.</li>'}</ul></div>
+ <div class="part"><b>Contact order</b><ol class="why">${O.contacts.map(o=>`<li><span class="lbl">${esc(o.step)}</span><br>${ct(o.contact)}${o.note?' <i>('+esc(o.note)+')</i>':''}</li>`).join('')}</ol></div>
+ <div class="part"><b>Lead angle</b><ul class="why">${(O.angles||[]).map((a,i)=>`<li>${i===0?'<b>Lead:</b> ':''}${esc(a.text)} ${cl(a.url,'source')}</li>`).join('')||'<li>No cited angle found beyond the site data.</li>'}</ul></div>
+ <div class="part"><b>Risks &amp; mitigations</b><ul class="why">${(O.risks||[]).map(r=>`<li>${esc(r.text)} ${cl(r.url,'source')}<br><small>${esc(r.mitigation)}${r.precedent?' Precedent: '+esc(r.precedent.text)+' '+cl(r.precedent.url,'source'):''}</small></li>`).join('')||'<li>No cited risks found in the sources reviewed.</li>'}</ul></div>
+ <div class="part"><b>Next step</b><p class="desc" style="margin:4px 0">${esc(O.next_step.text)} ${cl(O.next_step.url,'contact source')}</p></div></div>`}
+function stanceBlock(c){const st=c.stance;if(!st||!(st.items||[]).length)return '';st.items=st.items.slice().sort((a,b)=>Math.abs(b.points||0)-Math.abs(a.points||0));const T=D.tracker||{};
+ return `<div class="sec"><h4>Local-government stance (tracker &amp; designations) · ${st.points>=0?'+':''}${st.points}</h4>${st.items.map(a=>{const o=a.original||{};return `<div class="issue"><div class="meta"><span class="chip ${a.points>0?'positive':a.points<0?'negative':'neutral'}">${a.points>0?'+':''}${a.points}</span>${esc(a.label)} · ${esc(jn(a.jurisdiction))} (${esc(a.role)})${a.approximate?' · approximate (matched by jurisdiction)':''}${a.distance_mi!=null?' · project pin '+fmt(a.distance_mi)+' mi away':''}</div><div><b>${esc(a.name)}</b>${a.status?' · '+esc(a.status):''}</div><div style="color:#ccc">${esc(a.summary)}</div>${a.reason?`<small>${esc(a.reason)}</small>`:''}<div class="src">Original: ${lnk(o.url,(o.outlet?o.outlet+': ':'')+(o.title||o.url))}${(a.also||[]).map(x=>' · Also: '+lnk(x.url,(x.outlet?x.outlet+': ':'')+(x.title||x.url))).join('')} · Secondary: ${lnk(a.tracker_url,'Data Center Tracker (More Than Just Parks)')}</div></div>`}).join('')}<small class="src">${esc((D.community_rules||{}).stance||'')}</small></div>`}
+
 $('methodBody').innerHTML='<div class="sec"><h4>Score (0–100)</h4>'+Object.entries(D.scoring).map(([k,v])=>`<div class="part"><b style="text-transform:capitalize">${k}</b> <span class="mono">max ${v.max}</span><br><small>${esc(v.rule)}</small></div>`).join('')+(D.community_rules?'</div><div class="sec"><h4>Overall &amp; community score</h4>'+Object.entries(D.community_rules).map(([k,v])=>`<div class="part"><b style="text-transform:capitalize">${k}</b><br><small>${esc(v)}</small></div>`).join('')+'<small>Annexation: listing pin tested against U.S. Census TIGERweb incorporated-place boundaries (Jan 1 vintage) plus listing text. Pins near a boundary or parcels straddling it should be confirmed with the county.</small>':'')+'<small><br>Distances are straight-line from the listing’s coordinates (EPSG:5070). Transmission: HIFLD; gas: EIA; substations: OpenStreetMap. Verify capacity with the utility before relying on any site.</small></div><div class="sec"><h4>Source status (this refresh)</h4>'+Object.entries(D.sources).map(([k,v])=>`<div class="part"><span class="${v.ok?'ok':'fail'} mono">${v.ok?'OK':'FAIL'}</span> ${esc(k)} — ${esc(v.detail)}${v.url?`<div class="src"><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.url)}</a></div>`:''}</div>`).join('')+'</div>'+'<div class="sec"><h4>Price &amp; $/acre</h4><small>Asking prices come only from the listing itself (LOIS sale-price and pricing-note fields, or an explicit "Sale/Asking Price" in the listing text). $/acre is the listed per-acre price (or listed $/sq ft × 43,560), otherwise total ÷ listed acres. "—" means no price is listed; "Negotiable", "Call for price", "Auction" or "Lease only" repeat what the listing says. Nothing is estimated. Flags mark values outside $1,000–$500,000/acre, a total that does not match the stated $/acre, a sale-price field that only makes sense as a per-acre figure, or acreage that looks like a data-entry error.</small></div>';
 render();
 // ---------------------------------------------------------------- Storage view
@@ -318,8 +389,10 @@ function openStorage(id){const r=SR.find(x=>x.id===id);if(!r)return;history.repl
  <div class="sec"><h4>Score ${r.score}/100 — tap a part</h4>${r.score_cap?`<p class="desc" style="color:#c9a227">${esc(r.score_cap)}</p>`:''}${parts}</div>
  <div class="sec"><h4>Format fit</h4>${kv(fmts)}</div>
  <div class="sec"><h4>Property</h4>${kv([['Type',r.kind==='land'?'Development land':'Existing facility'+(r.subtype?' · '+esc(r.subtype):'')],['Address',esc([r.address,r.city_label,'KS',r.zip].filter(Boolean).join(', '))],['County',esc(r.county)],['Size',sizeTxt(r)],['Occupancy',esc(r.occupancy)],['Asking price',r.price?money(r.price):'Unpriced / call broker'],[r.kind==='land'?'$/acre':'$/SF',unitTxt(r)],['Size flag',esc(r.fit_flag||'')],['Listing updated',esc(r.updated)],['First seen',esc(r.first_seen)]])}${r.description?`<p class="desc">${esc(r.description)}</p>`:''}</div>
+ ${emailSec('storage',r,(()=>{const o=[],sn=new Set();(r.contacts||[]).filter(c=>c.role==='Listing broker').forEach(c=>{const k=(c.email||c.name||'').toLowerCase();if(sn.has(k))return;sn.add(k);o.push({c,step:c.email?'Listing broker':'Listing broker — no email on file'+(c.phone?', call '+c.phone:'')+'; add the address in Gmail'})});['Listing contact (economic development)','EDC','City planning / zoning'].forEach(ro=>(r.contacts||[]).filter(c=>c.role===ro&&c.email&&!sn.has(c.email.toLowerCase())).forEach(c=>{sn.add(c.email.toLowerCase());o.push({c,step:c.role})}));return o})())}
  <div class="sec"><h4>Who to contact</h4>${contacts||'—'}</div>
  <div class="sec"><h4>Sources</h4><div class="src">${(r.sources||[]).map(x=>lnk(x.url,x.label)).join('<br>')}</div></div>`;
+ emUpdate();
  if(!dlg.open)dlg.showModal();dlg.scrollTop=0}
 if(ST){const cm_=ST.comps||[];$('sComps').innerHTML=cm_.length?`<details><summary>Single garage / storage condo units for sale (${cm_.length}) — format comps, not scored</summary><div class="db">${cm_.map(x=>`<div class="issue">${lnk(x.url,x.name)} · ${esc(x.city)} · ${x.sf?fmt(x.sf,0)+' SF':''} · ${x.price?money(x.price):'unpriced'}${x.price&&x.sf?' · $'+fmt(x.price/x.sf,0)+'/SF':''}</div>`).join('')}</div></details>`:'';
  const C=ST.cities||{};

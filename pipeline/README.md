@@ -44,6 +44,45 @@ Local run (password in EDIFICE_SITES_PASSWORD):
 
 CI (`.github/workflows/refresh.yml`) uses repo secret `SITES_PASSWORD` (same password).
 
+## Local-government stance (`tracker.py`) and outreach plans (`outreach.py`)
+
+Source: the More Than Just Parks Data Center Tracker, Kansas state page
+(https://morethanjustparks.com/data-center-tracker/state/kansas). Every Kansas entry's popup is captured,
+followed to its original source, and hand-reviewed (summary, signal, direction, size) in
+`tracker_review.enc`; the last good pull is kept in `tracker_state.enc`. The original source is cited first,
+the tracker second. Detail pages are refetched when new or older than 7 days (max 15 per run); if the tracker
+is unreachable the cached pull is used.
+
+Adjustment to **Laws & zoning** (points; governing jurisdiction / secondary, e.g. county around a city):
+
+| Signal | Governing | Secondary |
+|---|---|---|
+| Data-center corridor (exact jurisdiction) | +20 | +10 |
+| Corridor, approximate jurisdiction match (disclosed) | +12 | +6 |
+| Government support — approved (incentive, agreement, rezoning) | +10 | +5 |
+| Government support — engaged (study, MOU, talks) | +6 | +3 |
+| Precedent (a project exists; 0 under an active moratorium) | +3 | +1 |
+| Government refusal | −8 | −4 |
+| Organized opposition | −5 | −2 |
+| Moratorium active / proposed / lifted | −60 / −30 / −5 | −25 / −12 / −2 |
+
+No double counting: a moratorium already in the hand-verified regulatory items scores 0 here; news
+articles credited as a stance source are removed from the News score; per jurisdiction only the largest
+positive and the largest negative count; the site total is capped at +20 / −30 and Laws & zoning stays in 0–100.
+Each credited item appears in the Laws & zoning panel with its points, summary and links.
+
+`outreach.py` builds a plan for the top 15 sites plus every site in a tracked jurisdiction: stance with
+evidence, contact order (EDC → city manager → county commission → utility), lead angle, cited risks with
+suggested mitigations, and a next step. The weekly report lists the top 5 plans.
+
+### Draft outbound email
+Each site's detail view has **Draft in Gmail** (opens Gmail web compose in a new tab:
+`https://mail.google.com/mail/?authuser=<sender>&view=cm&fs=1&to=&cc=&su=&body=`, all values URL-encoded),
+**Copy email** (subject + body to the clipboard), and a secondary mail-app (mailto) link. Sender is
+selectable (sahil@edifice.vc default, sahil@rattan.org) and remembered in localStorage. Nothing is ever sent.
+Powered Land drafts go to the plan's first contact; storage drafts go to the listing broker and ask about
+availability, price and terms. Body text uses only the cited data on the page.
+
 ## Price per acre (`pricing.py`)
 
 `scrape.py` calls `pricing.price_info()` for each listing. It uses only prices the listing states

@@ -172,6 +172,27 @@ def main():
         for c in key_contacts(s):
             md.append(f"   - Contact ({c.get('role')}): {contact_line(c)}")
     md += [""]
+    plans = [s for s in top if s.get("outreach")][:5]
+    if plans:
+        md += ["## Outreach plans — top 5", "", "_Stance, contact order, lead angle, risks and next step; every item cites its source. Mitigations are suggestions._", ""]
+        for n, s in enumerate(plans, 1):
+            o = s["outreach"]
+            md.append(f"{n}. **{s['name']}** — {s['city']} ({s['acres']:,.0f} ac) · overall {ov(s)} · stance: **{o['stance']['label']}**")
+            for e in o["stance"]["evidence"][:3]:
+                md.append(f"   - Evidence: {e['text']}" + (f" ([source]({e['url']}))" if e.get("url") else ""))
+            seq = []
+            for st in o["contacts"]:
+                c = st.get("contact") or {}
+                who = c.get("name") or c.get("org") or "—"
+                seq.append(f"{st['step']}: {who}" + (f" <{c['email']}>" if c.get("email") else "") + (f" ({st['note']})" if st.get("note") else ""))
+            md.append("   - Contact order: " + " → ".join(seq))
+            if o["angles"]:
+                a0 = o["angles"][0]; md.append(f"   - Lead angle: {a0['text']}" + (f" ([source]({a0['url']}))" if a0.get("url") else ""))
+            for r in o["risks"][:3]:
+                md.append(f"   - Risk: {r['text']}" + (f" ([source]({r['url']}))" if r.get("url") else "") + f" — {r['mitigation']}")
+            if not o["risks"]: md.append("   - Risks: none cited in the sources reviewed")
+            md.append(f"   - Next step: {o['next_step']['text']}")
+        md += [""]
     cheap = sorted((x for x in cur["sites"] if ov(x) >= 70 and (x.get("price") or {}).get("per_acre") is not None),
                    key=lambda x: x["price"]["per_acre"])[:5]
     priced = [x for x in cur["sites"] if (x.get("price") or {}).get("per_acre") is not None]

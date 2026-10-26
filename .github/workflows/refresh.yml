@@ -57,6 +57,8 @@ jobs:
           python3 pipeline/crypt.py dec pipeline/issues.enc "$RUNNER_TEMP/issues.json"
           python3 pipeline/crypt.py dec pipeline/local_review.enc "$RUNNER_TEMP/local_review.json"
           if [ -f pipeline/storage_state.enc ]; then python3 pipeline/crypt.py dec pipeline/storage_state.enc "$RUNNER_TEMP/storage_state.json"; fi
+          python3 pipeline/crypt.py dec pipeline/tracker_review.enc "$RUNNER_TEMP/tracker_review.json"
+          if [ -f pipeline/tracker_state.enc ]; then python3 pipeline/crypt.py dec pipeline/tracker_state.enc "$RUNNER_TEMP/tracker_state.json"; fi
 
       - name: Scrape
         run: |
@@ -80,6 +82,19 @@ jobs:
             --local-review "$RUNNER_TEMP/local_review.json" \
             --news-max-age-h 144
 
+      # Local-government stance: every Kansas entry on the More Than Just Parks Data Center Tracker,
+      # read at its original source (hand review in tracker_review.enc) -> Laws & zoning adjustment,
+      # plus outreach plans. New/stale detail pages are refetched (<=15 per run); if the tracker is
+      # unreachable the last good pull (tracker_state.enc) is used. Failure leaves community scores as-is.
+      - name: Tracker stance + outreach plans
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          python3 pipeline/tracker.py \
+            --data "$RUNNER_TEMP/data/sites.json" \
+            --review "$RUNNER_TEMP/tracker_review.json" \
+            --state "$RUNNER_TEMP/tracker_state.json"
+
       # Self-storage view (6 largest KS cities): Crexi + LOIS listings, city zoning GIS, KDOT AADT,
       # OSM competition, Census demand. Area-wide public layers are cached in geocache/storage;
       # per-listing lookups go to an uncached temp dir and listings live only in encrypted
@@ -102,6 +117,7 @@ jobs:
         run: |
           python3 pipeline/crypt.py enc "$RUNNER_TEMP/state.json" pipeline/state.enc
           if [ -f "$RUNNER_TEMP/storage_state.json" ]; then python3 pipeline/crypt.py enc "$RUNNER_TEMP/storage_state.json" pipeline/storage_state.enc; fi
+          if [ -f "$RUNNER_TEMP/tracker_state.json" ]; then python3 pipeline/crypt.py enc "$RUNNER_TEMP/tracker_state.json" pipeline/tracker_state.enc; fi
 
       - name: Commit encrypted output only
         run: |
@@ -109,10 +125,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add sites/index.html pipeline/state.enc
           if [ -f pipeline/storage_state.enc ]; then git add pipeline/storage_state.enc; fi
+          if [ -f pipeline/tracker_state.enc ]; then git add pipeline/tracker_state.enc; fi
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Refresh Kansas sites $(date -u +%Y-%m-%dT%H:%MZ)"
           git push
 
       - name: Scrub plaintext
         if: always()
-        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json" "$RUNNER_TEMP/storage_state.json" "$RUNNER_TEMP/stpoint"
+        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json" "$RUNNER_TEMP/storage_state.json" "$RUNNER_TEMP/stpoint" "$RUNNER_TEMP/tracker_review.json" "$RUNNER_TEMP/tracker_state.json"
