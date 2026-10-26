@@ -196,6 +196,10 @@ async function boot(user, email, me0) {
       const b = writeBatch(db), R = RIDS.has(e.site_id), dc = R ? 'rdeals' : 'deals';
       b.set(doc(db, dc, e.site_id, R ? 'revents' : 'events', e.event_id), clean(Object.fromEntries(EVK.map(k => [k, e[k]]))));
       b.set(doc(db, dc, e.site_id), { site_id: e.site_id, view: e.view, name: e.name || '', stage: stage || 'New', updated: serverTimestamp(), updated_by: email });
+      // Every stage change files an admin-only review item (pending -> asked -> answered) for the learning loop.
+      if (e.type === 'stage') b.set(doc(db, 'reviewQueue', e.event_id), { event_id: e.event_id, site_id: e.site_id, view: e.view, name: e.name || '',
+        track: e.view === 'storage' ? 'storage' : 'power', from_stage: e.from_stage || '', to_stage: e.to_stage, who: email,
+        reasons: (e.reasons || []).slice(0, 12), text: e.text || '', ts: e.ts, status: 'pending', restricted: R, created: serverTimestamp() });
       b.commit().catch(fail);
     },
     setFu(siteId, eventId, st) {
@@ -219,6 +223,8 @@ async function boot(user, email, me0) {
     },
     editManual: (id, edits, restricted) => updateDoc(doc(db, restricted ? 'rsites' : 'sites', id), { edits, edited_by: email, edited: serverTimestamp(), status: 'pending' }),
     deleteManual: (id, restricted) => deleteDoc(doc(db, restricted ? 'rsites' : 'sites', id)),
+    senders: [],
+    emailItems: siteId => role !== 'admin' ? Promise.resolve([]) : getDocs(collection(db, 'dealEmails', siteId, 'items')).then(q => q.docs.map(d => Object.assign({ id: d.id }, d.data()))),
     ready: () => {}
   };
   document.getElementById('data').textContent = JSON.stringify(D).replace(/</g, '\\u003c');
@@ -250,6 +256,13 @@ async function boot(user, email, me0) {
   if (admin0) {
     onSnapshot(collection(db, 'rdeals'), q => { dealsR = dmap(q); deals = Object.assign({}, dealsM, dealsR); apply(null, deals, null); }, fail);
     onSnapshot(collectionGroup(db, 'revents'), q => { evR = emap(q); events = evM.concat(evR); apply(events, null, null); }, fail);
+  }
+  // Learned weights (members read; the pipeline refits them) and, for admins, the email log + review queue.
+  onSnapshot(doc(db, 'learnings', 'weights'), d => { window.edksWeights && window.edksWeights(d.exists() ? d.data() : null); }, fail);
+  if (admin0) {
+    onSnapshot(collection(db, 'dealEmails'), q => { const o = {}; q.forEach(d => { const x = d.data(); o[d.id] = Object.assign({}, x, { last_touch: tsIso(x.last_touch), last_out: tsIso(x.last_out) }); }); window.edksEmails && window.edksEmails(o); }, fail);
+    onSnapshot(collection(db, 'reviewQueue'), q => { const o = {}; q.forEach(d => { o[d.id] = d.data(); }); window.edksReviews && window.edksReviews(o); }, fail);
+    getDoc(doc(db, 'config', 'senders')).then(d => { window.EDKS_BK.senders = ((d.exists() && d.data().emails) || []).map(x => String(x).toLowerCase()); window.edksEmails && window.edksEmails(null); }).catch(fail);
   }
   let imported = false;
   onSnapshot(collectionGroup(db, 'events'), { includeMetadataChanges: true }, q => {
