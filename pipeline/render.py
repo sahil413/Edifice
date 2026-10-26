@@ -60,6 +60,82 @@ def build_html(data, engine=EMAIL_STUB):
     js = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\!--")
     return tpl.replace("/*__DATA__*/", js)
 
+FB_VER = "13.1.0"
+FB_KEYS = ("apiKey", "authDomain", "projectId", "appId", "storageBucket", "messagingSenderId")
+
+def firebase_config(env_name, emulator):
+    """Public Firebase web config (identifies the project; not a secret). From env/repo variable."""
+    if emulator:
+        return {"apiKey": "demo-key", "authDomain": "localhost", "projectId": os.environ.get("FIREBASE_PROJECT", "demo-edifice")}
+    raw = os.environ.get(env_name, "")
+    try:
+        cfg = json.loads(raw) if raw else None
+    except ValueError:
+        cfg = None
+    if not cfg or not all(cfg.get(k) for k in ("apiKey", "authDomain", "projectId", "appId")):
+        sys.exit(f"[render] {env_name} must hold the Firebase web config JSON (apiKey, authDomain, projectId, appId)")
+    return {k: cfg[k] for k in FB_KEYS if cfg.get(k)}
+
+def build_firebase_html(cfg, emulator=False):
+    """The sign-in shell: the app code (already public in this repo as template.html) with no data and no
+    draft engine. Both are read from Firestore after an allowed Google account signs in."""
+    tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
+    head = '<script id="data" type="application/json">/*__DATA__*/</script>\n<script>\n'
+    if tpl.count(head) != 1:
+        sys.exit("[render] template layout changed: cannot find the data/app script pair")
+    tpl = tpl.replace(head, '<script id="data" type="application/json">null</script>\n<script type="text/plain" id="appjs">\n')
+    shell = open(os.path.join(HERE, "firebase_shell.html"), encoding="utf-8").read()
+    shell = shell.replace("__FB_VER__", FB_VER).replace("__FB_CONFIG__", json.dumps(cfg)).replace("__FB_EMU__", "true" if emulator else "false")
+    tpl = tpl.replace("<body>", '<body class="gated">', 1)
+    i = tpl.rindex("</body>")
+    return tpl[:i] + shell + "\n" + tpl[i:]
+
+EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+
+def data_probes(data, engine=None):
+    probes = set()
+    for s in data["sites"]:
+        if len(s["name"]) >= 8: probes.add(s["name"])
+        if len(s.get("address") or "") >= 8: probes.add(s["address"])
+        for c in s.get("contacts", []):
+            if c.get("email"): probes.add(c["email"])
+            if len(c.get("phone") or "") >= 10: probes.add(c["phone"])
+    for i in (data.get("issues") or {}).values():
+        if len(i.get("title") or "") >= 12: probes.add(i["title"])
+        if i.get("summary") and len(i["summary"]) >= 30: probes.add(i["summary"][:60])
+    st = data.get("storage") or {}
+    for r in st.get("rows", []):
+        if len(r.get("name") or "") >= 8: probes.add(r["name"])
+        if len(r.get("address") or "") >= 8: probes.add(r["address"])
+        for c in r.get("contacts", []):
+            if c.get("email"): probes.add(c["email"])
+    of = st.get("own_facility") or {}
+    for k in ("name", "address"):
+        if len(of.get(k) or "") >= 6: probes.add(of[k])
+    for s in data["sites"]:
+        o = s.get("outreach")
+        if o and len(o["next_step"]["text"]) >= 30: probes.add(o["next_step"]["text"][:60])
+    for it in (data.get("tracker") or {}).get("items", []):
+        if len(it.get("summary") or "") >= 30: probes.add(it["summary"][:60])
+    probes |= {"function genDraft", "edks_prefs_", "Kansas-based investor"}
+    if engine and engine != EMAIL_STUB:
+        probes |= {ln.strip()[:60] for ln in engine.splitlines() if len(ln.strip()) >= 40 and "function" in ln}
+    return probes
+
+def verify_public(path, data, engine=None):
+    """Firebase shell: no site data, no contacts, no draft engine, no email addresses."""
+    html = open(path, encoding="utf-8").read()
+    probes = data_probes(data, engine)
+    leaks = [p for p in probes if p in html]
+    emails = sorted(set(EMAIL_RE.findall(html)))
+    if leaks:
+        sys.exit(f"[render] PLAINTEXT LEAK: {len(leaks)} data strings found in {path}")
+    if emails:
+        sys.exit(f"[render] LEAK: {len(emails)} email address(es) found in {path}")
+    if "/*__DATA__*/" in html or '"sites":[' in html or "staticrypt" in html.lower():
+        sys.exit(f"[render] {path} does not look like the sign-in shell")
+    print(f"[render] verified {path}: 0 of {len(probes)} data probes, 0 email addresses, {len(html)} bytes")
+
 def encrypt(plain_path, out_dir, password_env):
     pw = os.environ.get(password_env)
     if not pw:
@@ -123,6 +199,10 @@ def main():
     ap.add_argument("--no-encrypt", action="store_true")
     ap.add_argument("--storage", default=None, help="plaintext storage.json (merged into the page as D.storage)")
     ap.add_argument("--email-engine", default=None, help="plaintext email engine JS (private/ only); default: decrypt pipeline/email_engine.enc")
+    ap.add_argument("--mode", choices=["staticrypt", "firebase"], default="staticrypt",
+                    help="firebase: write the Google sign-in shell (data lives in Firestore, see edks.py push)")
+    ap.add_argument("--firebase-config-env", default="FIREBASE_WEB_CONFIG")
+    ap.add_argument("--firebase-emulator", action="store_true", help="shell talks to the local emulators (testing only)")
     a = ap.parse_args()
     data = json.load(open(a.data, encoding="utf-8"))
     if a.storage and os.path.exists(a.storage):
@@ -130,6 +210,13 @@ def main():
         print(f"[render] merged storage view: {len(data['storage'].get('rows', []))} rows")
     elif a.storage:
         print(f"[render] WARNING: --storage {a.storage} not found; storage view will be empty")
+    if a.mode == "firebase":
+        html = build_firebase_html(firebase_config(a.firebase_config_env, a.firebase_emulator), a.firebase_emulator)
+        os.makedirs(a.out_dir, exist_ok=True)
+        out = os.path.join(a.out_dir, "index.html")
+        open(out, "w", encoding="utf-8").write(html)
+        verify_public(out, data, load_email_engine(a.email_engine, a.password_env))
+        return
     data["pipeline"] = load_pipeline_config(a.password_env)
     html = build_html(data, load_email_engine(a.email_engine, a.password_env))
     tmp = tempfile.mkdtemp(prefix="edks_")

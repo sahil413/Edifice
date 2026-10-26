@@ -1,0 +1,167 @@
+<!-- Firebase shell: Google sign-in gate. No site data ships in this page; after an allowed account
+     signs in, the data and the private draft engine are read from Firestore and the app starts. -->
+<style>
+#gate{position:fixed;inset:0;z-index:100;background:var(--bg);background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:72px 72px;display:flex;align-items:center;justify-content:center;padding:24px}
+#gate[hidden]{display:none}
+#gate .box{width:min(440px,100%);border:1px solid var(--line);background:var(--bg);padding:28px 24px}
+#gate h1{font-size:clamp(32px,8vw,48px);margin:18px 0 8px}
+#gate .btn{cursor:pointer;background:none;margin-top:18px}
+#gate .btn[disabled]{opacity:.4;cursor:default}
+#gate .msg{min-height:1.4em;margin-top:14px;color:var(--mut)}
+#gate .dash{border:1px dashed var(--line);padding:10px 12px;margin-top:14px}
+body.gated .wrap{visibility:hidden}
+</style>
+<div id="gate" role="dialog" aria-modal="true" aria-labelledby="gateT"><div class="box">
+ <div class="logo"><svg width="20" height="30" viewBox="0 0 32 48" fill="none" aria-hidden="true"><path d="M19 1 L31 13 L31 22 L19 34 L19 27 L27 19 L27 16 L19 8 Z" stroke="#F14B21" stroke-width="3"/><path d="M14 13 L14 20 L6 28 L6 31 L14 39 L14 46 L2 34 L2 25 Z" stroke="#F14B21" stroke-width="3"/></svg><span class="wordmark">Edifice</span></div>
+ <h1 id="gateT">Kansas sites.</h1>
+ <p class="sub" id="gateSub">Private research and deal pipeline. Sign in with your Edifice Google account.</p>
+ <button class="btn" type="button" id="gateIn" hidden>Sign in with Google</button>
+ <button class="btn" type="button" id="gateOut" hidden>Sign out</button>
+ <div class="lbl mono msg" id="gateMsg" role="status">Checking sign-in</div>
+</div></div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-auth.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc, getDoc, getDocs, collection, collectionGroup, onSnapshot, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-firestore.js';
+
+const CFG = __FB_CONFIG__, EMU = __FB_EMU__;
+const CERT_LIST_URL = 'https://www.kansascommerce.gov/program/business-incentives-and-services/certified-sites-program/sites/';
+const app = initializeApp(CFG);
+const auth = getAuth(app);
+const db = initializeFirestore(app, EMU ? {} : { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+if (EMU) { connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true }); connectFirestoreEmulator(db, '127.0.0.1', 8080); }
+const $g = id => document.getElementById(id);
+const gate = (sub, msg, btn) => {
+  document.body.classList.add('gated'); $g('gate').hidden = false;
+  if (sub != null) $g('gateSub').textContent = sub;
+  $g('gateMsg').textContent = msg || '';
+  $g('gateIn').hidden = btn !== 'in'; $g('gateOut').hidden = btn !== 'out';
+};
+const errTxt = e => (e && e.code === 'permission-denied') ? 'not allowed for your role' : (e && (e.code || e.message)) || String(e);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+$g('gateIn').onclick = async () => {
+  $g('gateIn').disabled = true; $g('gateMsg').textContent = 'Opening Google sign-in';
+  try { await signInWithPopup(auth, provider); }
+  catch (e) {
+    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) { await signInWithRedirect(auth, provider); return; }
+    $g('gateMsg').textContent = e && e.code === 'auth/popup-closed-by-user' ? 'Sign-in cancelled' : 'Sign-in failed · ' + errTxt(e);
+  } finally { $g('gateIn').disabled = false; }
+};
+$g('gateOut').onclick = () => signOut(auth);
+getRedirectResult(auth).catch(e => { $g('gateMsg').textContent = 'Sign-in failed · ' + errTxt(e); });
+
+let started = false;
+onAuthStateChanged(auth, async user => {
+  if (started) { if (!user) location.reload(); return; }
+  if (!user) { $g('gateT').textContent = 'Kansas sites.'; gate('Private research and deal pipeline. Sign in with your Edifice Google account.', '', 'in'); return; }
+  const email = (user.email || '').toLowerCase();
+  gate(null, 'Checking access for ' + email);
+  let me = null;
+  try { const s = await getDoc(doc(db, 'users', email)); if (s.exists()) me = s.data(); } catch (e) { me = null; }
+  if (!me || !user.emailVerified) { gate(email + ' does not have access. Ask an admin to add this address in Settings.', '', 'out'); $g('gateT').textContent = 'No access.'; return; }
+  started = true;
+  gate(null, 'Loading sites');
+  try { await boot(user, email, me); }
+  catch (e) { started = false; console.error(e); gate('The data could not be loaded.', errTxt(e), 'out'); }
+});
+
+async function blob(id) {
+  const s = await getDoc(doc(db, 'meta', id)); if (!s.exists()) return null;
+  const m = s.data(); if (!m.parts) return JSON.parse(m.j);
+  const parts = await Promise.all([...Array(m.parts).keys()].map(i => getDoc(doc(db, 'meta', id + '_' + i))));
+  return JSON.parse(parts.map(p => p.data().j).join(''));
+}
+
+async function boot(user, email, me0) {
+  const [sites, land, stor, eng] = await Promise.all([getDocs(collection(db, 'sites')), blob('land'), blob('storage'), getDoc(doc(db, 'private', 'email_engine'))]);
+  if (!land) throw new Error('No site data has been pushed yet');
+  const rows = { land: [], storage: [] };
+  sites.forEach(d => { const x = d.data(); if (rows[x.view]) rows[x.view].push(JSON.parse(x.j)); });
+  const byScore = (a, b) => (b.overall ?? b.score ?? 0) - (a.overall ?? a.score ?? 0);
+  const D = Object.assign(land, { sites: rows.land.sort(byScore), cert_list_url: CERT_LIST_URL, pipeline: {} });
+  if (stor) D.storage = Object.assign(stor, { rows: rows.storage.sort(byScore) });
+  let role = me0.role, users = [], events = [], deals = {}, pend = { e: false, d: false }, cache = false, lastOk = null, err = '';
+  const status = () => err ? { ok: false, text: 'Not saved · ' + err } : cache ? { ok: false, text: 'Offline · changes saved on this device' }
+    : (pend.e || pend.d) ? { ok: false, text: 'Saving' } : lastOk ? { ok: true, text: 'Synced · ' + lastOk.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) } : { ok: false, text: 'Connecting' };
+  const canEdit = () => role === 'editor' || role === 'admin';
+  const clean = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null));
+  const EVK = ['event_id', 'site_id', 'view', 'name', 'type', 'ts', 'from_stage', 'to_stage', 'reasons', 'text', 'assignee', 'due', 'status', 'by'];
+  const fail = e => { err = errTxt(e); console.error(e); window.edksStatus && window.edksStatus(); };
+  window.EDKS_BK = {
+    email, role: () => role, canEdit, isAdmin: () => role === 'admin', users: () => users, status, err: errTxt,
+    signOut: () => signOut(auth),
+    add(e, stage) {
+      err = '';
+      const b = writeBatch(db);
+      b.set(doc(db, 'deals', e.site_id, 'events', e.event_id), clean(Object.fromEntries(EVK.map(k => [k, e[k]]))));
+      b.set(doc(db, 'deals', e.site_id), { site_id: e.site_id, view: e.view, name: e.name || '', stage: stage || 'New', updated: serverTimestamp(), updated_by: email });
+      b.commit().catch(fail);
+    },
+    setFu(siteId, eventId, st) {
+      err = '';
+      updateDoc(doc(db, 'deals', siteId, 'events', eventId), { status: st, done_at: st === 'done' ? serverTimestamp() : null, done_by: st === 'done' ? email : null }).catch(fail);
+    },
+    setUser(em, data, isNew) {
+      em = em.toLowerCase();
+      const d = clean(Object.assign({}, data, isNew ? { added_by: email, added: serverTimestamp() } : { updated_by: email, updated: serverTimestamp() }));
+      if (d.name === '') delete d.name;
+      return isNew ? setDoc(doc(db, 'users', em), d) : updateDoc(doc(db, 'users', em), d);
+    },
+    removeUser: em => deleteDoc(doc(db, 'users', em.toLowerCase())),
+    ready: () => {}
+  };
+  document.getElementById('data').textContent = JSON.stringify(D).replace(/</g, '\\u003c');
+  const code = document.getElementById('appjs').textContent.replace('/*__EMAIL__*/', () => (eng.exists() ? eng.data().js : "function emailSec(){return ''}function emInit(){}function landContacts(){return []}"));
+  const s = document.createElement('script'); s.textContent = code; document.body.appendChild(s);
+  if (!window.edksApply) throw new Error('App did not start');
+  document.body.classList.remove('gated'); $g('gate').hidden = true;
+  const apply = (a, b, c) => { window.edksApply(a, b, c); };
+  const tsIso = t => t && t.toDate ? t.toDate().toISOString() : (t || '');
+  onSnapshot(collection(db, 'users'), { includeMetadataChanges: false }, q => {
+    users = q.docs.map(d => Object.assign({ email: d.id }, d.data()));
+    const mine = users.find(u => u.email === email);
+    if (!mine) { location.reload(); return; }
+    if (mine.role !== role) { role = mine.role; document.getElementById('acctWho').textContent = email + ' · ' + role; }
+    apply(null, null, users);
+  }, fail);
+  onSnapshot(collection(db, 'deals'), { includeMetadataChanges: true }, q => {
+    pend.d = q.metadata.hasPendingWrites; cache = q.metadata.fromCache; if (!pend.d && !cache) lastOk = new Date();
+    deals = {}; q.forEach(d => { const x = d.data(); deals[x.view + '|' + d.id] = { stage: x.stage, updated: tsIso(x.updated) || new Date().toISOString() }; });
+    apply(null, deals, null);
+  }, fail);
+  let imported = false;
+  onSnapshot(collectionGroup(db, 'events'), { includeMetadataChanges: true }, q => {
+    pend.e = q.metadata.hasPendingWrites; cache = q.metadata.fromCache; if (!pend.e && !cache) lastOk = new Date();
+    events = q.docs.map(d => { const x = d.data(); return Object.assign({}, x, { event_id: d.id, site_id: x.site_id || d.ref.parent.parent.id, reasons: x.reasons || [] }); });
+    apply(events, null, null);
+    if (!imported && !q.metadata.fromCache) { imported = true; importLocal(new Set(events.map(e => e.event_id))); }
+  }, fail);
+
+  // One-time carry-over of decisions made in this browser before sign-in existed (same origin).
+  function importLocal(have) {
+    let old; try { old = JSON.parse(localStorage.getItem('edks_pipe_v1') || '{}'); } catch (e) { return; }
+    if (!canEdit() || localStorage.getItem('edks_pipe_imported') || !(old.events || []).length) return;
+    const ev = old.events.filter(e => e.event_id && e.site_id && !have.has(e.event_id) && ['stage', 'note', 'followup'].includes(e.type));
+    const ids = new Set(D.sites.map(x => x.id).concat((D.storage ? D.storage.rows : []).map(x => x.id)));
+    const latest = {};
+    let b = writeBatch(db), n = 0;
+    for (const e of ev) {
+      if (!ids.has(e.site_id)) continue;
+      const x = clean(Object.fromEntries(EVK.map(k => [k, e[k]]))); x.by = email; x.view = x.view || (/^st-/.test(x.site_id) ? 'storage' : 'land');
+      if (x.type === 'followup') x.status = 'open';
+      if (x.type === 'stage' && !(x.reasons || []).length) x.reasons = ['Other'];
+      b.set(doc(db, 'deals', x.site_id, 'events', x.event_id), x); n++;
+      if (x.type === 'stage' && (!latest[x.site_id] || x.ts > latest[x.site_id].ts)) latest[x.site_id] = x;
+      if (n % 400 === 0) { b.commit().catch(fail); b = writeBatch(db); }
+    }
+    for (const x of Object.values(latest)) b.set(doc(db, 'deals', x.site_id), { site_id: x.site_id, view: x.view, name: x.name || '', stage: x.to_stage, updated: serverTimestamp(), updated_by: email });
+    const flips = (old.events || []).filter(e => e.type === 'followup_status' && e.ref_id).sort((a, c) => a.ts < c.ts ? -1 : 1);
+    b.commit().then(() => {
+      for (const f of flips) { const t = ev.find(e => e.event_id === f.ref_id) || events.find(e => e.event_id === f.ref_id); if (t && ids.has(t.site_id)) updateDoc(doc(db, 'deals', t.site_id, 'events', f.ref_id), { status: f.status, done_at: f.status === 'done' ? serverTimestamp() : null, done_by: f.status === 'done' ? email : null }).catch(fail); }
+      try { localStorage.setItem('edks_pipe_imported', new Date().toISOString()); } catch (e) {}
+      if (n) console.info('[edks] carried over ' + n + ' events saved in this browser');
+    }).catch(fail);
+  }
+}
+</script>

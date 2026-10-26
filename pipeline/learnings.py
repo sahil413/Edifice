@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Summarise deal-pipeline decisions into sourcing preferences.
 
-Reads stage events from the pipeline Apps Script (doGet, needs PIPELINE_URL/EDIFICE_PIPELINE_URL and
-PIPELINE_TOKEN/EDIFICE_PIPELINE_TOKEN in the environment) or from a local --events JSON/CSV export,
+Reads stage events from Firestore (via edks.py credentials: emulator, EDIFICE_FIREBASE_SA or the key file),
+from a local --events JSON/CSV export (e.g. `edks.py dump`), or from the legacy Apps Script endpoint
+(PIPELINE_URL/PIPELINE_TOKEN),
 joins them to the private site data and writes a markdown summary. The output path must be private
 (gitignored); nothing here is committed except this code.
 """
@@ -28,6 +29,13 @@ def fetch_events():
     if not j.get("ok"):
         sys.exit("[learnings] endpoint refused the request")
     return j.get("events") or []
+
+def firestore_events():
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import edks
+    if not edks.configured():
+        return None
+    return edks.all_events(edks.db())
 
 def load_events(path):
     if path.endswith(".csv"):
@@ -94,11 +102,14 @@ def main():
     ap.add_argument("--data", default="private/data/sites.json")
     ap.add_argument("--storage", default="private/data/storage.json")
     ap.add_argument("--out", default="private/learnings.md")
+    ap.add_argument("--push", action="store_true", help="also store the summary in Firestore learnings/summary")
     a = ap.parse_args()
-    ev = load_events(a.events) if a.events else fetch_events()
+    ev = load_events(a.events) if a.events else firestore_events()
+    if ev is None and not a.events:
+        ev = fetch_events()
     if ev is None:
         ev = []
-        print("[learnings] no endpoint configured and no --events file; writing an empty summary")
+        print("[learnings] no Firestore credentials, endpoint or --events file; writing an empty summary")
     land = {s["id"]: s for s in json.load(open(a.data, encoding="utf-8"))["sites"]} if os.path.exists(a.data) else {}
     stor = {r["id"]: r for r in json.load(open(a.storage, encoding="utf-8")).get("rows", [])} if os.path.exists(a.storage) else {}
     lines = ["# What the pipeline decisions say", "",
@@ -108,6 +119,11 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     open(a.out, "w", encoding="utf-8").write("\n".join(lines))
     print(f"[learnings] {len(ev)} events -> {a.out}")
+    if a.push:
+        import edks
+        edks.db().collection("learnings").document("summary").set(
+            {"md": "\n".join(lines), "events": len(ev), "updated": edks.now_iso()})
+        print("[learnings] stored in Firestore learnings/summary")
 
 if __name__ == "__main__":
     main()

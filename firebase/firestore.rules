@@ -1,0 +1,92 @@
+rules_version = '2';
+// Edifice deal pipeline. Every read needs a signed-in, verified Google account that has a
+// users/{email} doc. Site data, meta and the private engine are written only by the daily
+// pipeline's service account (the Admin SDK bypasses these rules), so clients can never write them.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function email() { return request.auth.token.email.lower(); }
+    function signedIn() {
+      return request.auth != null && request.auth.token.email != null
+        && request.auth.token.email_verified == true;
+    }
+    function userPath(e) { return /databases/$(database)/documents/users/$(e); }
+    function member() { return signedIn() && exists(userPath(email())); }
+    function role() { return get(userPath(email())).data.role; }
+    function editor() { return member() && role() in ['editor', 'admin']; }
+    function admin() { return member() && role() == 'admin'; }
+    function str(v, n) { return v is string && v.size() <= n; }
+    function stages() {
+      return ['New', 'Reviewing', 'Contacted', 'In Diligence', 'LOI Submitted',
+              'Under Contract', 'Closed', 'Passed', 'On Hold'];
+    }
+
+    // Pipeline output: member-read only.
+    match /sites/{id} { allow read: if member(); allow write: if false; }
+    match /meta/{id} { allow read: if member(); allow write: if false; }
+    match /private/{id} { allow read: if member(); allow write: if false; }
+    match /learnings/{id} { allow read: if member(); allow write: if false; }
+
+    // Users: members can read the roster (names on notes); only admins manage it.
+    // An admin cannot remove or demote themselves, so there is always at least one admin.
+    match /users/{uemail} {
+      allow read: if member();
+      allow create: if admin() && uemail == uemail.lower()
+        && request.resource.data.keys().hasOnly(['role', 'name', 'added_by', 'added'])
+        && request.resource.data.role in ['admin', 'editor', 'viewer']
+        && (!('name' in request.resource.data) || str(request.resource.data.name, 120));
+      allow update: if admin()
+        && request.resource.data.keys().hasOnly(['role', 'name', 'added_by', 'added', 'updated_by', 'updated'])
+        && request.resource.data.role in ['admin', 'editor', 'viewer']
+        && (!('name' in request.resource.data) || str(request.resource.data.name, 120))
+        && (uemail != email() || request.resource.data.role == 'admin');
+      allow delete: if admin() && uemail != email();
+    }
+
+    // deals/{siteId}: stage and current state.
+    match /deals/{siteId} {
+      allow read: if member();
+      allow create, update: if editor()
+        && request.resource.data.keys().hasOnly(['site_id', 'view', 'name', 'stage', 'updated', 'updated_by'])
+        && request.resource.data.site_id == siteId
+        && request.resource.data.view in ['land', 'storage']
+        && request.resource.data.stage in stages()
+        && request.resource.data.updated_by == email()
+        && request.resource.data.updated is timestamp;
+      allow delete: if admin();
+
+      // Stage changes (with reasons), notes, follow-ups. Authored as yourself; history is append-only
+      // except a follow-up's status, which any editor can flip.
+      match /events/{eventId} {
+        allow read: if member();
+        allow create: if editor()
+          && request.resource.data.keys().hasOnly(['event_id', 'site_id', 'view', 'name', 'type', 'ts',
+               'from_stage', 'to_stage', 'reasons', 'text', 'assignee', 'due', 'status', 'by'])
+          && request.resource.data.event_id == eventId
+          && request.resource.data.site_id == siteId
+          && request.resource.data.view in ['land', 'storage']
+          && request.resource.data.by == email()
+          && request.resource.data.ts is string && request.resource.data.ts.size() <= 40
+          && str(request.resource.data.get('text', ''), 5000)
+          && (
+            (request.resource.data.type == 'stage'
+              && request.resource.data.to_stage in stages()
+              && request.resource.data.reasons is list && request.resource.data.reasons.size() >= 1
+              && request.resource.data.reasons.size() <= 12)
+            || (request.resource.data.type == 'note' && request.resource.data.text.size() > 0)
+            || (request.resource.data.type == 'followup' && request.resource.data.text.size() > 0
+              && request.resource.data.status == 'open'
+              && str(request.resource.data.get('assignee', ''), 80)
+              && str(request.resource.data.get('due', ''), 10))
+          );
+        allow update: if editor() && resource.data.type == 'followup'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'done_at', 'done_by'])
+          && request.resource.data.status in ['open', 'done']
+          && (!('done_by' in request.resource.data) || request.resource.data.done_by in [email(), null]);
+        allow delete: if admin();
+      }
+    }
+
+    // Lets the realtime collection-group listener read every deal's events.
+    match /{path=**}/events/{eventId} { allow read: if member(); }
+  }
+}

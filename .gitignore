@@ -7,6 +7,10 @@ reports/
 snapshots/
 *.json
 !package.json
+!firebase/firebase.json
 .staticrypt.json
 __pycache__/
 *.pyc
+node_modules/
+*.log
+.firebase/

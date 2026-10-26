@@ -135,6 +135,10 @@ details.col>div{padding:2px 12px 4px}details.col .sec{margin-bottom:12px}
 .hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .who{display:flex;align-items:center;gap:6px}.who select{background:#000;color:#fff;border:1px solid var(--line);padding:4px 6px;font:11px 'JetBrains Mono',monospace;border-radius:0}
 dialog.small{width:min(560px,100vw)}
+.acct{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}.acct button{background:none;border:0;color:var(--mut);font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;padding:0}.acct button:hover{color:#fff}
+.who[hidden],.acct[hidden],#setBtn[hidden]{display:none}.ulist td{vertical-align:middle}.ulist .inp{width:auto;min-width:110px}.uadd{display:grid;grid-template-columns:1fr 1fr 130px auto;gap:6px;margin-top:8px}@media(max-width:640px){.uadd{grid-template-columns:1fr}.ulist .inp{min-width:0;width:92px}.ulist td,.ulist th{padding-left:6px;padding-right:6px}.ulist td b{word-break:break-all}.ulist .lbl{word-break:break-all}.ulist td:last-child .btn{padding-left:8px;padding-right:8px}}
+body.ro .addrow,body.ro #noteText,body.ro [data-act],body.ro .dealtop label,body.ro #dStage{display:none}
+.btn[disabled]{opacity:.4;cursor:default}
 .stchk{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(min-width:640px){.stchk{grid-template-columns:repeat(3,1fr)}}
 .stchk .chk{display:flex;align-items:center;gap:8px}
 .fdlg .btns{border-top:1px solid var(--line);padding-top:14px;margin-top:6px}
@@ -149,7 +153,7 @@ details.lr{margin-top:16px}
   <svg width="20" height="30" viewBox="0 0 32 48" fill="none" aria-hidden="true"><path d="M19 1 L31 13 L31 22 L19 34 L19 27 L27 19 L27 16 L19 8 Z" stroke="#F14B21" stroke-width="3"/><path d="M14 13 L14 20 L6 28 L6 31 L14 39 L14 46 L2 34 L2 25 Z" stroke="#F14B21" stroke-width="3"/></svg>
   <span class="wordmark">Edifice</span>
  </a>
- <div class="hdr-r"><span class="lbl mono" id="refreshed"></span><span class="lbl mono syncst off" id="sync" role="status" title="Pipeline sync status">Not synced</span><span class="who lbl mono" id="whoWrap" hidden><label for="me">Signed in as</label><select id="me"></select></span></div>
+ <div class="hdr-r"><span class="lbl mono" id="refreshed"></span><span class="lbl mono syncst off" id="sync" role="status" title="Pipeline sync status">Not synced</span><span class="who lbl mono" id="whoWrap" hidden><label for="me">Signed in as</label><select id="me"></select></span><span class="acct lbl mono" id="acct" hidden><span id="acctWho"></span><button type="button" id="setBtn" hidden>Settings</button><button type="button" id="outBtn">Sign out</button></span></div>
 </header>
 <div class="viewbar"><label class="lbl mono" for="view">View</label><select id="view" aria-label="Choose table"><option value="land">Powered Land</option><option value="storage">Storage</option></select></div>
 <div id="viewLand">
@@ -216,6 +220,7 @@ details.lr{margin-top:16px}
 </div>
 </div><div class="sec"><h4>Stage</h4><div class="stchk" id="fStageS"></div></div><div class="btns"><button class="btn" type="button" onclick="fReset('storage')">Reset filters</button><button class="btn" type="button" onclick="this.closest('dialog').close()">Show results</button></div></div></dialog>
 <dialog id="why" class="small"><div class="dh"><div><div class="lbl mono" id="whySub"></div><h2 id="whyTitle"></h2></div><button class="close" type="button" onclick="$('why').close()" aria-label="Cancel">Cancel</button></div><div class="db"><div class="sec"><h4>Why?</h4><div class="rchips" id="whyChips"></div><textarea id="whyText" class="inp" rows="3" placeholder="In a sentence: what made the call"></textarea><p class="emnote" id="whyHint"></p><div class="btns"><button class="btn" type="button" id="whySave">Save stage change</button></div><p class="emnote">Saved with a timestamp to this deal’s history and the pipeline sheet. The reasons feed what the sourcing bots look for.</p></div></div></dialog>
+<dialog id="setDlg" class="small"><div class="dh"><div><div class="lbl mono">Settings</div><h2>Users.</h2></div><button class="close" type="button" onclick="$('setDlg').close()" aria-label="Close">Close</button></div><div class="db"><div class="sec"><h4>Who can sign in</h4><p class="desc">Admins manage users. Editors move deals, add notes and follow-ups. Viewers read only. Sign-in is with Google; the address must match exactly.</p><table class="lt ulist"><thead><tr><th>User</th><th>Role</th><th></th></tr></thead><tbody id="uBody"></tbody></table></div><div class="sec"><h4>Add a user</h4><div class="uadd"><input id="uEmail" class="inp" type="email" placeholder="Google account email" autocomplete="off"><input id="uName" class="inp" placeholder="Name"><select id="uRole" class="inp sel" aria-label="Role"><option value="viewer">Viewer</option><option value="editor" selected>Editor</option><option value="admin">Admin</option></select><button class="btn" type="button" id="uAdd">Add user</button></div><p class="lbl mono" id="uMsg" role="status"></p></div></div></dialog>
 <dialog id="ip"><div class="dh"><div><div class="lbl mono" id="ipSub"></div><h2 id="ipTitle"></h2></div><button class="close" onclick="ip.close()" aria-label="Close">Close</button></div><div class="db" id="ipBody"></div></dialog>
 <dialog id="dlg"><div class="dh"><div><div id="dBadges"></div><h2 id="dTitle"></h2><div class="lbl mono" id="dSub"></div></div><button class="close" onclick="dlg.close()" aria-label="Close">Close</button></div><div class="db" id="dBody"></div></dialog>
 <script id="data" type="application/json">/*__DATA__*/</script>
@@ -353,13 +358,14 @@ const STL={Contacted:'Contacted / Outreach'};const stL=x=>STL[x]||x;
 const STC={'New':'s-new','LOI Submitted':'s-hot','Under Contract':'s-hot','Closed':'s-won','Passed':'s-out','On Hold':'s-out'};
 const REASONS=['Price','Power','Gas','Zoning / sentiment','Size','Location','Broker','Timing','Other'];
 const PURSUE=['Reviewing','Contacted','In Diligence','LOI Submitted','Under Contract','Closed'],PASS=['Passed','On Hold'];
-const PC=D.pipeline||{};const BOTS=PC.bots||['Powered Land Sites','Self Storage Sites','Coding Agent','Any bot'];const USERS=PC.users||[];
+const BK=window.EDKS_BK||null;const RO=()=>!!BK&&!BK.canEdit();
+const PC=D.pipeline||{};const BOTS=PC.bots||['Powered Land Sites','Self Storage Sites','Coding Agent','Any bot'];let USERS=BK?BK.users():(PC.users||[]);
 const PK='edks_pipe_v1';let PS={events:[],queue:[],deals:{},last:null,err:''};
-try{PS=Object.assign(PS,JSON.parse(localStorage.getItem(PK)||'{}'))}catch(e){}
-function psave(){try{localStorage.setItem(PK,JSON.stringify(PS))}catch(e){}}
+if(!BK)try{PS=Object.assign(PS,JSON.parse(localStorage.getItem(PK)||'{}'))}catch(e){}
+function psave(){if(BK)return;try{localStorage.setItem(PK,JSON.stringify(PS))}catch(e){}}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,9);
-function me(){let m='';try{m=localStorage.getItem('edks_me')||''}catch(e){}return USERS.some(u=>u.email===m)?m:((USERS[0]||{}).email||'')}
-const uName=e=>{const u=USERS.find(x=>x.email===e);return u?u.name:(e||'you')};
+function me(){if(BK)return BK.email;let m='';try{m=localStorage.getItem('edks_me')||''}catch(e){}return USERS.some(u=>u.email===m)?m:((USERS[0]||{}).email||'')}
+const uName=e=>{const u=USERS.find(x=>x.email===e);return u?(u.name||u.email):/^bot:/.test(e||'')?e.slice(4):(e||'you')};
 const objOf=(v,id)=>v==='land'?S.find(s=>s.id===id):SR.find(r=>r.id===id);
 let STG={};
 function idx(){STG={};const T={};PS.events.forEach(e=>{if(e.type!=='stage')return;const k=e.view+'|'+e.site_id;if(!T[k]||e.ts>T[k]){T[k]=e.ts;STG[k]=e.to_stage}});
@@ -369,16 +375,16 @@ function stB(v,id){const s=stageOf(v,id);return `<span class="badge stg ${STC[s]
 const evOf=(v,id)=>PS.events.filter(e=>e.view===v&&e.site_id===id).sort((a,b)=>a.ts<b.ts?-1:1);
 function fuStatus(f){let st=f.status||'open',t='';PS.events.forEach(e=>{if(e.type==='followup_status'&&e.ref_id===f.event_id&&e.ts>t){t=e.ts;st=e.status}});return st}
 const when=t=>{const d=new Date(t);return isNaN(d)?esc(t):d.toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})};
-function addEv(e){e=Object.assign({event_id:uid(),ts:new Date().toISOString(),by:me()},e);PS.events.push(e);PS.queue.push(e.event_id);psave();pRefresh();sync();return e}
+function addEv(e){e=Object.assign({event_id:uid(),ts:new Date().toISOString(),by:me()},e);if(BK){if(RO())return e;if(e.type==='followup_status')BK.setFu(e.site_id,e.ref_id,e.status);else BK.add(e,e.type==='stage'?e.to_stage:stageOf(e.view,e.site_id));return e}PS.events.push(e);PS.queue.push(e.event_id);psave();pRefresh();sync();return e}
 function pRefresh(){idx();if(!$('viewLand').hidden)render();else sRender();const b=$('dealBox');if(b&&dlg.open)drawDeal(b.dataset.view,b.dataset.id);syncUI()}
 // ---- sync with the Apps Script endpoint (falls back to this browser until one is configured)
 let syncing=false;
-function syncUI(){const el=$('sync');if(!el)return;const n=PS.queue.length;el.classList.toggle('off',!PC.url||!!PS.err||n>0);
+function syncUI(){const el=$('sync');if(!el)return;if(BK){const t=BK.status();el.textContent=t.text;el.classList.toggle('off',!t.ok);return}const n=PS.queue.length;el.classList.toggle('off',!PC.url||!!PS.err||n>0);
  el.textContent=!PC.url?`Not synced · saved in this browser${n?' · '+n+' pending':''}`:PS.err?`Not synced · ${n} pending · tap to retry`:n?`Syncing · ${n} pending`:PS.last?'Synced · '+new Date(PS.last).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'Connecting'}
 function merge(j){const have=new Set(PS.events.map(e=>e.event_id));(j.events||[]).forEach(r=>{if(!r.event_id||have.has(r.event_id))return;have.add(r.event_id);
   PS.events.push({event_id:String(r.event_id),ts:String(r.timestamp),site_id:String(r.site_id),view:r.view,name:r.name,type:r.type,from_stage:r.from_stage||'',to_stage:r.to_stage||'',reasons:String(r.reasons||'').split(', ').filter(Boolean),text:r.text||'',assignee:r.assignee||'',due:String(r.due||'').slice(0,10),status:r.status||'',ref_id:r.ref_id||'',by:r.by||''})});
  PS.deals={};(j.deals||[]).forEach(d=>{PS.deals[d.view+'|'+d.site_id]={stage:d.stage,updated:String(d.updated||'')}})}
-async function sync(){syncUI();if(!PC.url||!PC.token||syncing)return;syncing=true;
+async function sync(){syncUI();if(BK||!PC.url||!PC.token||syncing)return;syncing=true;
  try{const q=PS.events.filter(e=>PS.queue.includes(e.event_id));const G={};q.forEach(e=>{const b=e.by||me();(G[b]=G[b]||[]).push(e)});
   for(const [by,list] of Object.entries(G)){const r=await fetch(PC.url,{method:'POST',body:JSON.stringify({token:PC.token,by,events:list})});const j=await r.json();if(!j.ok)throw new Error(j.error||'rejected');const ok=new Set(j.saved||[]);PS.queue=PS.queue.filter(id=>!ok.has(id))}
   const r=await fetch(PC.url+(PC.url.includes('?')?'&':'?')+'token='+encodeURIComponent(PC.token));const j=await r.json();if(!j.ok)throw new Error(j.error||'rejected');
@@ -393,14 +399,14 @@ function askWhy(v,o,from,to){return new Promise((res,rej)=>{const w=$('why');con
  $('whyText').oninput=chk;chk();let done=false;
  $('whySave').onclick=()=>{done=true;w.close();res({reasons:[...sel],text:$('whyText').value.trim()})};
  w.onclose=()=>{if(!done)rej('cancel')};w.showModal()})}
-async function setStage(v,id,to){const o=objOf(v,id);const from=stageOf(v,id);if(!o||to===from){pRefresh();return}
+async function setStage(v,id,to){const o=objOf(v,id);const from=stageOf(v,id);if(!o||to===from||RO()){pRefresh();return}
  try{const r=await askWhy(v,o,from,to);addEv({type:'stage',view:v,site_id:id,name:o.name,from_stage:from,to_stage:to,reasons:r.reasons,text:r.text})}catch(e){pRefresh()}}
 // ---- deal box inside the detail view: stage, follow-ups, notes, history
 function dealBox(v,o){return `<div class="deal" id="dealBox" data-view="${v}" data-id="${esc(o.id)}"></div>`}
 function drawDeal(v,id){const b=$('dealBox');if(!b)return;const ob=document.querySelector('#dBadges .stg');if(ob)ob.outerHTML=stB(v,id);const E=evOf(v,id),st=stageOf(v,id);
  const fus=E.filter(e=>e.type==='followup'),notes=E.filter(e=>e.type==='note'),hist=E.filter(e=>e.type==='stage').slice().reverse();const open=fus.filter(f=>fuStatus(f)!=='done').length;
  b.innerHTML=`<div class="dealtop"><span class="lbl mono">Stage</span>${stB(v,id)}<label class="lbl mono" for="dStage">Move to</label><select id="dStage" class="inp sel">${STAGES.map(s=>`<option value="${esc(s)}"${s===st?' selected':''}>${esc(stL(s))}</option>`).join('')}</select></div>
- <div class="sec"><h4>Follow-ups for the bots · ${open} open</h4>${fus.map(f=>{const d=fuStatus(f)==='done';return `<label class="fu${d?' done':''}"><input type="checkbox" data-fu="${esc(f.event_id)}"${d?' checked':''}><span><span class="t">${esc(f.text)}</span><span class="meta mono">${d?'Done':'Open'} · → ${esc(f.assignee||'Any bot')}${f.due?' · due '+esc(f.due):''} · ${esc(uName(f.by))} · ${when(f.ts)}</span></span></label>`}).join('')||'<p class="desc muted">No follow-ups yet.</p>'}
+ <div class="sec"><h4>Follow-ups for the bots · ${open} open</h4>${fus.map(f=>{const d=fuStatus(f)==='done';return `<label class="fu${d?' done':''}"><input type="checkbox" data-fu="${esc(f.event_id)}"${d?' checked':''}${RO()?' disabled':''}><span><span class="t">${esc(f.text)}</span><span class="meta mono">${d?'Done':'Open'} · → ${esc(f.assignee||'Any bot')}${f.due?' · due '+esc(f.due):''} · ${esc(uName(f.by))} · ${when(f.ts)}</span></span></label>`}).join('')||'<p class="desc muted">No follow-ups yet.</p>'}
   <div class="addrow"><input id="fuText" class="inp" placeholder="Task for a bot, e.g. Pull the zoning code for this parcel"><input id="fuDue" class="inp" type="date" aria-label="Due date (optional)"><select id="fuWho" class="inp sel" aria-label="Assignee">${BOTS.map(x=>`<option>${esc(x)}</option>`).join('')}</select><button class="btn" data-act="fu">Add follow-up</button></div></div>
  <div class="sec"><h4>Notes · ${notes.length}</h4><div class="thread">${notes.map(n=>`<div class="ev"><div class="meta mono">${esc(uName(n.by))} · ${when(n.ts)}</div><div>${esc(n.text).replace(/\n/g,'<br>')}</div></div>`).join('')||'<p class="desc muted">No notes yet.</p>'}</div>
   <textarea id="noteText" class="inp" rows="3" placeholder="Leave a note"></textarea><div class="btns"><button class="btn" data-act="note">Add note</button></div></div>
@@ -446,7 +452,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-sbar]');if
 const MODE={land:'list',storage:'list'};try{const m=JSON.parse(localStorage.getItem('edks_mode')||'{}');Object.assign(MODE,m)}catch(e){}
 function setMode(v,m){MODE[v]=m;try{localStorage.setItem('edks_mode',JSON.stringify(MODE))}catch(e){}v==='land'?render():sRender()}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.v,b.dataset.mode)});
-function board(v,R){const cap=60;return STAGES.map(s=>{const L=R.filter(o=>stageOf(v,o.id)===s);return `<div class="bcol"><h5><span>${esc(stL(s))}</span><span>${L.length}</span></h5>${L.slice(0,cap).map(o=>`<div class="bcard" data-id="${esc(o.id)}"><div class="bh"><b>${esc(o.name)}</b><span class="mono acc">${v==='land'?o.overall:o.score}</span></div><div class="lbl">${v==='land'?esc(o.city)+' · '+fmt(o.acres,0)+' ac'+(pr(o).per_acre!=null?' · $'+fmt(pr(o).per_acre,0)+'/ac':''):esc(o.city_label)+' · '+sizeTxt(o)+(o.price?' · '+money(o.price):'')}</div><select class="inp sel" data-bstage="${v}" data-sid="${esc(o.id)}" aria-label="Move stage">${STAGES.map(x=>`<option value="${esc(x)}"${x===s?' selected':''}>${esc(stL(x))}</option>`).join('')}</select></div>`).join('')}${L.length>cap?`<p class="lbl mono" style="padding:0 10px">+${L.length-cap} more · narrow with Filters</p>`:''}</div>`}).join('')}
+function board(v,R){const cap=60;return STAGES.map(s=>{const L=R.filter(o=>stageOf(v,o.id)===s);return `<div class="bcol"><h5><span>${esc(stL(s))}</span><span>${L.length}</span></h5>${L.slice(0,cap).map(o=>`<div class="bcard" data-id="${esc(o.id)}"><div class="bh"><b>${esc(o.name)}</b><span class="mono acc">${v==='land'?o.overall:o.score}</span></div><div class="lbl">${v==='land'?esc(o.city)+' · '+fmt(o.acres,0)+' ac'+(pr(o).per_acre!=null?' · $'+fmt(pr(o).per_acre,0)+'/ac':''):esc(o.city_label)+' · '+sizeTxt(o)+(o.price?' · '+money(o.price):'')}</div><select class="inp sel" data-bstage="${v}" data-sid="${esc(o.id)}" aria-label="Move stage"${RO()?' disabled':''}>${STAGES.map(x=>`<option value="${esc(x)}"${x===s?' selected':''}>${esc(stL(x))}</option>`).join('')}</select></div>`).join('')}${L.length>cap?`<p class="lbl mono" style="padding:0 10px">+${L.length-cap} more · narrow with Filters</p>`:''}</div>`}).join('')}
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.bstage)setStage(t.dataset.bstage,t.dataset.sid,t.value)});
 function afterRender(v,R){const L=v==='land';const bd=$(L?'bL':'bS');const isB=MODE[v]==='board';bd.classList.toggle('on',isB);bd.innerHTML=isB?board(v,R):'';
  $(L?'listL':'listS').hidden=isB;document.querySelectorAll(`[data-mode][data-v="${v}"]`).forEach(b=>b.classList.toggle('on',b.dataset.mode===MODE[v]));
@@ -454,7 +460,7 @@ function afterRender(v,R){const L=v==='land';const bd=$(L?'bL':'bS');const isB=M
 // ---- learning loop: what the stage decisions say about what gets pursued or passed
 const med=a=>{a=a.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y);if(!a.length)return null;const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};
 function learn(v){const ev=PS.events.filter(e=>e.view===v&&e.type==='stage');
- if(!ev.length)return '<p class="desc">No stage decisions yet. Each time a deal moves and you say why, the reasons are tallied here and written to the Events tab of the Edifice Deal Pipeline sheet, so the sourcing bots can weight what you pursue and what you pass on.</p>';
+ if(!ev.length)return '<p class="desc">No stage decisions yet. Each time a deal moves and you say why, the reasons are tallied here and saved to the deal history, so the sourcing bots can weight what you pursue and what you pass on.</p>';
  const last={};ev.forEach(e=>{if(!last[e.site_id]||e.ts>last[e.site_id].ts)last[e.site_id]=e});
  const G={pursue:[],pass:[]};Object.values(last).forEach(e=>{const k=PASS.includes(e.to_stage)?'pass':PURSUE.includes(e.to_stage)?'pursue':null;if(k)G[k].push(e)});
  const tally=L=>{const t={};L.forEach(e=>(e.reasons||[]).forEach(r=>t[r]=(t[r]||0)+1));return Object.entries(t).sort((a,b)=>b[1]-a[1])};
@@ -542,8 +548,24 @@ if(ST){const cm_=ST.comps||[];$('sComps').innerHTML=cm_.length?`<details><summar
 {let v0='land';try{v0=localStorage.getItem('edks_view')||'land'}catch(e){}const h=location.hash.slice(1);if(/^st-/.test(h))v0='storage';else if(h)v0='land';setView(v0);
  if(h){if(/^st-/.test(h))openStorage(h);else openSite(h)}}
 
+if(BK){
+// ---- signed-in account, live updates and user management (Firebase)
+window.edksApply=(ev,deals,users)=>{if(ev)PS.events=ev;if(deals)PS.deals=deals;if(users)USERS=users;document.body.classList.toggle('ro',RO());$('setBtn').hidden=!BK.isAdmin();pRefresh();if($('setDlg').open)drawUsers()};
+window.edksStatus=syncUI;
+$('acct').hidden=false;$('acctWho').textContent=BK.email+' · '+BK.role();$('outBtn').onclick=()=>BK.signOut();$('setBtn').hidden=!BK.isAdmin();$('sync').onclick=null;
+const RL={admin:'Admin',editor:'Editor',viewer:'Viewer'};
+function drawUsers(){const L=USERS.slice().sort((a,b)=>a.email<b.email?-1:1);$('uBody').innerHTML=L.map(u=>{const self=u.email===BK.email;return `<tr data-u="${esc(u.email)}"><td><b>${esc(u.name||u.email)}</b><div class="lbl">${esc(u.email)}${self?' · you':''}</div></td><td><select class="inp sel" data-urole="${esc(u.email)}" aria-label="Role"${self?' disabled':''}>${Object.entries(RL).map(([k,l])=>`<option value="${k}"${u.role===k?' selected':''}>${l}</option>`).join('')}</select></td><td>${self?'':`<button class="btn" type="button" data-urm="${esc(u.email)}">Remove</button>`}</td></tr>`}).join('')}
+const uMsg=t=>{$('uMsg').textContent=t};
+$('setBtn').onclick=()=>{drawUsers();uMsg('');$('setDlg').showModal()};
+$('uBody').addEventListener('change',async e=>{const em=e.target.dataset.urole;if(!em)return;try{await BK.setUser(em,{role:e.target.value});uMsg(`${em} is now ${RL[e.target.value].toLowerCase()}.`)}catch(x){uMsg('Not saved · '+BK.err(x));drawUsers()}});
+$('uBody').addEventListener('click',async e=>{const em=e.target.dataset.urm;if(!em)return;if(e.target.dataset.sure!=='1'){e.target.dataset.sure='1';e.target.textContent='Confirm remove';return}try{await BK.removeUser(em);uMsg(`${em} removed.`)}catch(x){uMsg('Not removed · '+BK.err(x))}});
+$('uAdd').onclick=async()=>{const em=$('uEmail').value.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){uMsg('Enter a full email address.');$('uEmail').focus();return}
+ if(USERS.some(u=>u.email===em)){uMsg(`${em} is already a user.`);return}try{await BK.setUser(em,{role:$('uRole').value,name:$('uName').value.trim()},true);$('uEmail').value='';$('uName').value='';uMsg(`${em} added as ${RL[$('uRole').value].toLowerCase()}.`)}catch(x){uMsg('Not added · '+BK.err(x))}};
+document.body.classList.toggle('ro',RO());syncUI();BK.ready();
+}else{
 if(USERS.length){$('whoWrap').hidden=false;$('me').innerHTML=USERS.map(u=>`<option value="${esc(u.email)}">${esc(u.name||u.email)}</option>`).join('');$('me').value=me();$('me').onchange=e=>{try{localStorage.setItem('edks_me',e.target.value)}catch(x){}}}
 $('sync').onclick=()=>{PS.err='';sync()};syncUI();sync();setInterval(sync,60000);addEventListener('online',sync);document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync()});
+}
 </script>
 </body>
 </html>
