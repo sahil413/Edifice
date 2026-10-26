@@ -225,6 +225,14 @@ async function boot(user, email, me0) {
     deleteManual: (id, restricted) => deleteDoc(doc(db, restricted ? 'rsites' : 'sites', id)),
     senders: [],
     emailItems: siteId => role !== 'admin' ? Promise.resolve([]) : getDocs(collection(db, 'dealEmails', siteId, 'items')).then(q => q.docs.map(d => Object.assign({ id: d.id }, d.data()))),
+    gmailClientId: '',
+    // Send-from-app bookkeeping (admins who are one of the configured senders only; rules enforce the same).
+    logSent(siteId, it) {
+      const b = writeBatch(db);
+      b.set(doc(db, 'dealEmails', siteId, 'items', it.thread_id + '_' + it.message_id), Object.assign({}, it, { site_id: siteId, source: 'app', dir: 'out', by: email, created: serverTimestamp() }));
+      b.set(doc(db, 'dealEmails', siteId), { site_id: siteId, last_touch: serverTimestamp(), last_out: serverTimestamp(), last_account: it.account, updated_by: email }, { merge: true });
+      return b.commit();
+    },
     ready: () => {}
   };
   document.getElementById('data').textContent = JSON.stringify(D).replace(/</g, '\\u003c');
@@ -262,7 +270,7 @@ async function boot(user, email, me0) {
   if (admin0) {
     onSnapshot(collection(db, 'dealEmails'), q => { const o = {}; q.forEach(d => { const x = d.data(); o[d.id] = Object.assign({}, x, { last_touch: tsIso(x.last_touch), last_out: tsIso(x.last_out) }); }); window.edksEmails && window.edksEmails(o); }, fail);
     onSnapshot(collection(db, 'reviewQueue'), q => { const o = {}; q.forEach(d => { o[d.id] = d.data(); }); window.edksReviews && window.edksReviews(o); }, fail);
-    getDoc(doc(db, 'config', 'senders')).then(d => { window.EDKS_BK.senders = ((d.exists() && d.data().emails) || []).map(x => String(x).toLowerCase()); window.edksEmails && window.edksEmails(null); }).catch(fail);
+    getDoc(doc(db, 'config', 'senders')).then(d => { window.EDKS_BK.senders = ((d.exists() && d.data().emails) || []).map(x => String(x).toLowerCase()); window.EDKS_BK.gmailClientId = (d.exists() && d.data().gmail_client_id) || ''; window.edksEmails && window.edksEmails(null); }).catch(fail);
   }
   let imported = false;
   onSnapshot(collectionGroup(db, 'events'), { includeMetadataChanges: true }, q => {

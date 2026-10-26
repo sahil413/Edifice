@@ -28,7 +28,7 @@ Manual sites (ids m-...; admin-only ones live in rsites/rdeals/revents):
                                                            enrich pending manual sites (--all: rescore every manual site)
   edks.py delete-manual SITE_ID                            remove a manual site, its deal and its events
 """
-import argparse, csv, datetime as dt, hashlib, json, os, subprocess, sys, uuid
+import argparse, csv, re, datetime as dt, hashlib, json, os, subprocess, sys, uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STAGES = ["New", "Reviewing", "Contacted", "In Diligence", "LOI Submitted", "Under Contract", "Closed", "Passed", "On Hold"]
@@ -487,9 +487,14 @@ def cmd_senders(a):
     client = db(); ref = client.collection("config").document("senders")
     if a.emails:
         em = [x.strip().lower() for x in a.emails.split(",") if x.strip()]
-        ref.set({"emails": em, "updated": dt.datetime.now(dt.timezone.utc)})
-    snap = ref.get()
-    print(f"[edks] senders: {len((snap.to_dict() or {}).get('emails') or []) if snap.exists else 0} account(s) configured")
+        ref.set({"emails": em, "updated": dt.datetime.now(dt.timezone.utc)}, merge=True)
+    cid = (getattr(a, "gmail_client_id", None) or "").strip()
+    if cid:
+        if not re.fullmatch(r"[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com", cid):
+            sys.exit("[edks] --gmail-client-id should look like 1234-abc.apps.googleusercontent.com")
+        ref.set({"gmail_client_id": cid, "updated": dt.datetime.now(dt.timezone.utc)}, merge=True)
+    snap = ref.get(); d = (snap.to_dict() or {}) if snap.exists else {}
+    print(f"[edks] senders: {len(d.get('emails') or [])} account(s) configured; send-from-app client id {'set' if d.get('gmail_client_id') else 'not set'}")
 
 def ensure_deal(client, sid, view, name, by):
     ref = client.collection("deals").document(sid)
@@ -774,7 +779,7 @@ def main():
     p.add_argument("--force", action="store_true")
     p = sp.add_parser("backfill-reviews"); p.add_argument("--since", default="2026-10-01")
     p = sp.add_parser("learn", help="refit learnings/weights"); p.add_argument("--force", action="store_true")
-    p = sp.add_parser("senders"); p.add_argument("--emails", help="comma-separated; omit to just count")
+    p = sp.add_parser("senders"); p.add_argument("--emails", help="comma-separated; omit to just count"); p.add_argument("--gmail-client-id", help="OAuth Web client ID for send-from-app (not a secret)")
     a = ap.parse_args()
     {"push": cmd_push, "users": cmd_users, "followups": cmd_followups, "done": lambda a: cmd_status(a, "done"),
      "reopen": lambda a: cmd_status(a, "open"), "note": cmd_note, "followup": cmd_followup, "dump": cmd_dump,
