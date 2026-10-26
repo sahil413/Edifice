@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # Workload Identity Federation (keyless Google auth for the Firestore push)
 
 concurrency:
   group: refresh-sites
@@ -116,12 +117,23 @@ jobs:
           run || STORAGE_REUSE_STATE_H=72 run
 
       # Site data, roster-gated, lives in Firestore; nothing about the sites is in the public page.
+      # Keyless: GitHub's OIDC token is exchanged for a short-lived token of the pipeline service account.
+      # Repo variables: GCP_WIF_PROVIDER (projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>)
+      # and GCP_SERVICE_ACCOUNT (<name>@<project>.iam.gserviceaccount.com).
+      - name: Google auth (Workload Identity Federation)
+        if: ${{ env.FIREBASE_WEB_CONFIG != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
       - name: Push to Firestore
         if: ${{ env.FIREBASE_WEB_CONFIG != '' }}
         env:
-          EDIFICE_FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT: ${{ fromJSON(vars.FIREBASE_WEB_CONFIG || '{"projectId":""}').projectId }}
         run: |
-          test -n "$EDIFICE_FIREBASE_SA" || { echo "FIREBASE_SERVICE_ACCOUNT secret is missing"; exit 1; }
           pip install -q firebase-admin
           python3 pipeline/edks.py push --data "$RUNNER_TEMP/data/sites.json" --storage "$RUNNER_TEMP/data/storage.json" --password-env SITES_PASSWORD
 
@@ -152,10 +164,11 @@ jobs:
           if [ -f sites/app/index.html ]; then git add sites/app/index.html; fi
           if [ -f pipeline/storage_state.enc ]; then git add pipeline/storage_state.enc; fi
           if [ -f pipeline/tracker_state.enc ]; then git add pipeline/tracker_state.enc; fi
+          git reset -q -- 'gha-creds-*.json' 2>/dev/null || true
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Refresh Kansas sites $(date -u +%Y-%m-%dT%H:%MZ)"
           git push
 
       - name: Scrub plaintext
         if: always()
-        run: rm -rf "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json" "$RUNNER_TEMP/storage_state.json" "$RUNNER_TEMP/stpoint" "$RUNNER_TEMP/tracker_review.json" "$RUNNER_TEMP/tracker_state.json"
+        run: rm -rf gha-creds-*.json "$RUNNER_TEMP/data" "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json" "$RUNNER_TEMP/storage_state.json" "$RUNNER_TEMP/stpoint" "$RUNNER_TEMP/tracker_review.json" "$RUNNER_TEMP/tracker_state.json"

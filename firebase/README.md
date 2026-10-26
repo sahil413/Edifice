@@ -23,14 +23,16 @@ site data and the draft engine are read from Firestore after an allowed account 
 
 ## Configuration
 - Repo variable `FIREBASE_WEB_CONFIG`: the web app config JSON (public project metadata).
-- Repo secret `FIREBASE_SERVICE_ACCOUNT`: service-account key JSON (CI push only).
+- Repo variables `GCP_WIF_PROVIDER` and `GCP_SERVICE_ACCOUNT`: keyless CI auth (Workload Identity Federation,
+  pool restricted to this repository; the service account holds roles/datastore.user). No keys anywhere.
 - Repo variable `SITES_MODE=firebase`: serve the sign-in app at /sites instead of the StaticCrypt page.
   Until then the app is staged at /sites/app/.
 - Deploy rules: `firebase deploy --only firestore:rules --config firebase/firebase.json --project <id>`.
 
 ## Bot CLI (`pipeline/edks.py`)
-Key from `EDIFICE_FIREBASE_SA` (path or JSON), `GOOGLE_APPLICATION_CREDENTIALS`, or
-`~/.config/edifice/firebase-sa.json`. The key is never printed.
+Keyless: Application Default Credentials (`gcloud auth application-default login` on the box, WIF in CI).
+Set `EDIFICE_IMPERSONATE_SA` to act as the pipeline service account. A legacy key (`EDIFICE_FIREBASE_SA`)
+still works if one ever exists. Credentials are never printed.
 
     edks.py followups [--assignee NAME] [--all] [--json]
     edks.py done EVENT_ID | reopen EVENT_ID

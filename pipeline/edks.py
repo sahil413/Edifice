@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Edifice deal pipeline on Firestore: the daily data push and the bots' command line.
 
-Auth (never printed, never logged, never written anywhere by this script):
-  EDIFICE_FIREBASE_SA            path to a service-account key file, or the key JSON itself (CI secret)
-  GOOGLE_APPLICATION_CREDENTIALS path to a key file
-  default                        ~/.config/edifice/firebase-sa.json (keep it chmod 600)
-  FIRESTORE_EMULATOR_HOST        talk to the local emulator instead (no key needed; set FIREBASE_PROJECT)
+Auth is keyless by default (credentials are never printed, logged or written by this script):
+  Application Default Credentials  box: `gcloud auth application-default login`; CI: Workload Identity
+                                   Federation via google-github-actions/auth (GOOGLE_APPLICATION_CREDENTIALS)
+  EDIFICE_IMPERSONATE_SA           act as this service account (needs roles/iam.serviceAccountTokenCreator)
+  FIREBASE_PROJECT                 project id (default dms-edvc)
+  EDIFICE_FIREBASE_SA              optional legacy key: a path or the key JSON (also ~/.config/edifice/firebase-sa.json)
+  FIRESTORE_EMULATOR_HOST          talk to the local emulator instead (FIREBASE_PROJECT defaults to demo-edifice)
 
 Bots:
   edks.py followups [--assignee NAME] [--all] [--json]     open follow-ups (oldest due first)
@@ -36,39 +38,70 @@ def now_iso():
     t = dt.datetime.now(dt.timezone.utc)
     return t.strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
 
-def sa_source():
-    return os.environ.get("EDIFICE_FIREBASE_SA") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") \
-        or os.path.expanduser("~/.config/edifice/firebase-sa.json")
+KEY_FILE = os.path.expanduser("~/.config/edifice/firebase-sa.json")
+
+def project_id():
+    return os.environ.get("FIREBASE_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT") \
+        or os.environ.get("GCLOUD_PROJECT") or "dms-edvc"
+
+def _key_source():
+    """A service-account key, only if one was provided explicitly (keys are optional; keyless is preferred)."""
+    s = os.environ.get("EDIFICE_FIREBASE_SA", "")
+    if s:
+        return s
+    return KEY_FILE if os.path.exists(KEY_FILE) else ""
+
+def _adc():
+    """Application Default Credentials: gcloud user login on the box, or Workload Identity Federation in CI
+    (google-github-actions/auth sets GOOGLE_APPLICATION_CREDENTIALS to a short-lived external-account config).
+    EDIFICE_IMPERSONATE_SA=<sa email> makes the box act as the pipeline service account instead of the user."""
+    import google.auth
+    from google.auth.exceptions import DefaultCredentialsError
+    scopes = ["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/datastore"]
+    try:
+        cred, _ = google.auth.default(scopes=scopes, quota_project_id=project_id())
+    except DefaultCredentialsError:
+        return None
+    sa = os.environ.get("EDIFICE_IMPERSONATE_SA")
+    if sa:
+        from google.auth import impersonated_credentials
+        cred = impersonated_credentials.Credentials(source_credentials=cred, target_principal=sa,
+                                                    target_scopes=scopes, lifetime=3600)
+    return cred
 
 def configured():
-    """True when Firestore is reachable without prompting: emulator, key in env, or key file present."""
-    s = sa_source()
-    return bool(os.environ.get("FIRESTORE_EMULATOR_HOST") or s.lstrip().startswith("{") or os.path.exists(s))
+    """True when Firestore is reachable without prompting: emulator, explicit key, or ADC."""
+    if os.environ.get("FIRESTORE_EMULATOR_HOST") or _key_source():
+        return True
+    try:
+        return _adc() is not None
+    except Exception:
+        return False
 
 def db():
     try:
-        import firebase_admin
-        from firebase_admin import credentials, firestore
+        from google.cloud import firestore as gcf
     except ImportError:
-        die("firebase-admin is not installed (pip install firebase-admin)")
+        die("google-cloud-firestore is not installed (pip install firebase-admin)")
     if os.environ.get("FIRESTORE_EMULATOR_HOST"):
         from google.auth.credentials import AnonymousCredentials
-        from google.cloud import firestore as gcf
         return gcf.Client(project=os.environ.get("FIREBASE_PROJECT", "demo-edifice"), credentials=AnonymousCredentials())
-    src = sa_source()
+    src = _key_source()
     try:
-        if src.lstrip().startswith("{"):
-            cred = credentials.Certificate(json.loads(src))
-        elif os.path.exists(src):
-            cred = credentials.Certificate(src)
+        if src:
+            from google.oauth2 import service_account
+            info = json.loads(src) if src.lstrip().startswith("{") else json.load(open(src, encoding="utf-8"))
+            cred = service_account.Credentials.from_service_account_info(
+                info, scopes=["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/datastore"])
         else:
-            die("no service-account key found (set EDIFICE_FIREBASE_SA or save it to ~/.config/edifice/firebase-sa.json)")
+            cred = _adc()
+            if cred is None:
+                die("no credentials: run `gcloud auth application-default login` (box) or use Workload Identity (CI)")
     except SystemExit:
         raise
     except Exception:
-        die("the service-account key could not be loaded (contents not shown)")
-    app = firebase_admin.initialize_app(cred)
-    return firestore.client(app)
+        die("credentials could not be loaded (contents not shown)")
+    return gcf.Client(project=project_id(), credentials=cred)
 
 # ------------------------------------------------------------------ data push (daily pipeline)
 def _h(s):
