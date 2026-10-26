@@ -595,7 +595,10 @@ def main():
     bases = {p["base"].lower(): p["base"] for p in places}
     for s in sites:
         a = annexation(s, places)
-        a["place_base"] = base_of.get(a["place"]); a["nearest_base"] = base_of.get(a["nearest_city"])
+        hand = s.get("annexation") if isinstance(s.get("annexation"), dict) and s["annexation"].get("hand") else None
+        if hand:   # hand-verified (e.g. an annexation newer than the Jan 1 Census file) beats the public layer
+            a = {**a, **{k: v for k, v in hand.items() if v not in (None, "")}}
+        a["place_base"] = a.get("place_base") or base_of.get(a["place"]); a["nearest_base"] = a.get("nearest_base") or base_of.get(a["nearest_city"])
         s["annexation"] = a
 
     # jurisdictions to search

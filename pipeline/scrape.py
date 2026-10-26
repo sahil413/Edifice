@@ -65,6 +65,7 @@ def get(url, *, params=None, data=None, timeout=60, tries=4, accept="*/*"):
 
 def cached(cache_dir, name, fn, max_age_h=20):
     """Cache expensive geodata pulls for a day (CI starts clean each run)."""
+    max_age_h = float(os.environ.get("EDKS_GEO_MAX_AGE_H") or max_age_h)   # the enrich job reuses the daily cache
     if cache_dir:
         p = os.path.join(cache_dir, name)
         if os.path.exists(p) and time.time() - os.path.getmtime(p) < max_age_h * 3600:
@@ -393,6 +394,81 @@ def attach_contacts(rec, curated):
         seen.add(k); out.append(c)
     rec["contacts"] = out
 
+# ---------------------------------------------------------------- geodata
+def load_geo(cache_dir):
+    """Public GIS layers (HIFLD lines, EIA gas, OSM substations) as nearest-feature trees. Updates STATUS."""
+    try:
+        tx = cached(cache_dir, "hifld_tx.json", lambda: arcgis_all(HIFLD_TX, "VOLTAGE,VOLT_CLASS,OWNER,STATUS,SUB_1,SUB_2"))
+        STATUS["HIFLD transmission lines (ArcGIS)"] = {"ok": True, "detail": f"{len(tx)} line features in KS bbox", "url": HIFLD_TX}
+    except Exception as e:
+        tx = []; STATUS["HIFLD transmission lines (ArcGIS)"] = {"ok": False, "detail": str(e)[:200], "url": HIFLD_TX}
+    try:
+        gas = cached(cache_dir, "eia_gas.json", lambda: arcgis_all(EIA_GAS, "TYPEPIPE,Operator,Status"))
+        STATUS["EIA natural gas pipelines (ArcGIS)"] = {"ok": True, "detail": f"{len(gas)} pipeline features", "url": EIA_GAS}
+    except Exception as e:
+        gas = []; STATUS["EIA natural gas pipelines (ArcGIS)"] = {"ok": False, "detail": str(e)[:200], "url": EIA_GAS}
+    try:
+        subs = cached(cache_dir, "osm_subs.json", fetch_osm_substations)
+        STATUS["OpenStreetMap substations (Overpass)"] = {"ok": True, "detail": f"{len(subs)} substations, {sum(1 for s in subs if s['kv'])} with voltage", "url": OVERPASS[0]}
+    except Exception as e:
+        STATUS["OpenStreetMap substations (Overpass)"] = {"ok": False, "detail": f"{str(e)[:150]} — using HIFLD line end-points", "url": OVERPASS[0]}
+        subs = []
+        for f in tx:  # fallback: named end-points of HIFLD lines approximate substations
+            kv = line_kv(f["a"])
+            for path, nm in ((f["paths"][0][0], f["a"].get("SUB_1")), (f["paths"][-1][-1], f["a"].get("SUB_2"))):
+                if nm and not re.match(r"(?i)^(tap|unknown|not available)", nm):
+                    subs.append({"lat": path[1], "lon": path[0], "name": nm, "operator": "", "kv": kv, "kind": "hifld-endpoint", "osm": HIFLD_TX})
+
+    # build nearest-trees by voltage class
+    line_classes = [69, 115, 138, 230, 345]
+    tx_geo = []
+    for f in tx:
+        if str(f["a"].get("STATUS", "")).upper() not in ("", "IN SERVICE", "NOT AVAILABLE"):
+            continue
+        g = proj_paths(f["paths"]); kv = line_kv(f["a"])
+        if g is not None: tx_geo.append((g, kv, clean(f["a"].get("OWNER"))))
+    line_trees = {c: Nearest([g for g, kv, _ in tx_geo if kv and kv >= c], [(kv, o) for g, kv, o in tx_geo if kv and kv >= c]) for c in line_classes}
+    gas_geo = [(proj_paths(f["paths"]), f["a"]) for f in gas]
+    gas_tree = Nearest([g for g, _ in gas_geo if g is not None], [a for g, a in gas_geo if g is not None])
+    sub_pts = []
+    for s in subs:
+        if s.get("kind") in ("minor_distribution", "traction", "industrial"):
+            continue
+        x, y = TO_M.transform(s["lon"], s["lat"]); sub_pts.append((Point(x, y), s))
+    sub_trees = {c: Nearest([p for p, s in sub_pts if (s["kv"] or 0) >= c], [s for p, s in sub_pts if (s["kv"] or 0) >= c]) for c in line_classes}
+    sub_any = Nearest([p for p, s in sub_pts], [s for p, s in sub_pts])
+
+    return {"line_classes": line_classes, "line_trees": line_trees, "gas_tree": gas_tree, "sub_trees": sub_trees, "sub_any": sub_any}
+
+def geo_apply(r, G):
+    """Power/gas proximity for one record (needs lat/lon), then the infrastructure score."""
+    line_classes, line_trees, gas_tree, sub_trees, sub_any = G["line_classes"], G["line_trees"], G["gas_tree"], G["sub_trees"], G["sub_any"]
+    r["power"] = {"lines_by_class": [], "subs_by_class": []}; r["gasline"] = {}
+    if r["lat"] is None:
+        r["geo_note"] = r.get("geo_note") or "No coordinates on listing"; score(r); return
+    x, y = TO_M.transform(r["lon"], r["lat"]); pt = Point(x, y)
+    for c in line_classes:
+        mi, meta = line_trees[c].query(pt)
+        if mi is not None:
+            r["power"]["lines_by_class"].append({"class": c, "kv": meta[0], "owner": meta[1], "mi": round(mi, 2)})
+    for c in line_classes:
+        mi, s = sub_trees[c].query(pt)
+        if mi is not None:
+            r["power"]["subs_by_class"].append({"class": c, "kv": s["kv"], "name": s["name"], "operator": s["operator"], "mi": round(mi, 2), "ref": s["osm"]})
+    mi, s = sub_any.query(pt)
+    if mi is not None:
+        r["power"]["nearest_sub"] = {"kv": s["kv"], "name": s["name"], "mi": round(mi, 2), "ref": s["osm"]}
+        r["power"]["subs_by_class"].append({"class": 0, "kv": s["kv"], "name": s["name"], "operator": s["operator"], "mi": round(mi, 2), "ref": s["osm"]})
+    lb = r["power"]["lines_by_class"]
+    if lb:
+        r["power"]["nearest_line"] = min(lb, key=lambda c: c["mi"])
+        hv = [c for c in lb if c["class"] >= 230]
+        r["power"]["nearest_230"] = min(hv, key=lambda c: c["mi"]) if hv else None
+    mi, a = gas_tree.query(pt)
+    if mi is not None:
+        r["gasline"] = {"mi": round(mi, 2), "operator": clean(a.get("Operator")), "type": clean(a.get("TYPEPIPE"))}
+    score(r)
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -464,74 +540,9 @@ def main():
             kept.append(r)
     recs = kept
 
-    # geodata
-    try:
-        tx = cached(args.geo_cache_dir or args.cache_dir, "hifld_tx.json", lambda: arcgis_all(HIFLD_TX, "VOLTAGE,VOLT_CLASS,OWNER,STATUS,SUB_1,SUB_2"))
-        STATUS["HIFLD transmission lines (ArcGIS)"] = {"ok": True, "detail": f"{len(tx)} line features in KS bbox", "url": HIFLD_TX}
-    except Exception as e:
-        tx = []; STATUS["HIFLD transmission lines (ArcGIS)"] = {"ok": False, "detail": str(e)[:200], "url": HIFLD_TX}
-    try:
-        gas = cached(args.geo_cache_dir or args.cache_dir, "eia_gas.json", lambda: arcgis_all(EIA_GAS, "TYPEPIPE,Operator,Status"))
-        STATUS["EIA natural gas pipelines (ArcGIS)"] = {"ok": True, "detail": f"{len(gas)} pipeline features", "url": EIA_GAS}
-    except Exception as e:
-        gas = []; STATUS["EIA natural gas pipelines (ArcGIS)"] = {"ok": False, "detail": str(e)[:200], "url": EIA_GAS}
-    try:
-        subs = cached(args.geo_cache_dir or args.cache_dir, "osm_subs.json", fetch_osm_substations)
-        STATUS["OpenStreetMap substations (Overpass)"] = {"ok": True, "detail": f"{len(subs)} substations, {sum(1 for s in subs if s['kv'])} with voltage", "url": OVERPASS[0]}
-    except Exception as e:
-        STATUS["OpenStreetMap substations (Overpass)"] = {"ok": False, "detail": f"{str(e)[:150]} — using HIFLD line end-points", "url": OVERPASS[0]}
-        subs = []
-        for f in tx:  # fallback: named end-points of HIFLD lines approximate substations
-            kv = line_kv(f["a"])
-            for path, nm in ((f["paths"][0][0], f["a"].get("SUB_1")), (f["paths"][-1][-1], f["a"].get("SUB_2"))):
-                if nm and not re.match(r"(?i)^(tap|unknown|not available)", nm):
-                    subs.append({"lat": path[1], "lon": path[0], "name": nm, "operator": "", "kv": kv, "kind": "hifld-endpoint", "osm": HIFLD_TX})
-
-    # build nearest-trees by voltage class
-    line_classes = [69, 115, 138, 230, 345]
-    tx_geo = []
-    for f in tx:
-        if str(f["a"].get("STATUS", "")).upper() not in ("", "IN SERVICE", "NOT AVAILABLE"):
-            continue
-        g = proj_paths(f["paths"]); kv = line_kv(f["a"])
-        if g is not None: tx_geo.append((g, kv, clean(f["a"].get("OWNER"))))
-    line_trees = {c: Nearest([g for g, kv, _ in tx_geo if kv and kv >= c], [(kv, o) for g, kv, o in tx_geo if kv and kv >= c]) for c in line_classes}
-    gas_geo = [(proj_paths(f["paths"]), f["a"]) for f in gas]
-    gas_tree = Nearest([g for g, _ in gas_geo if g is not None], [a for g, a in gas_geo if g is not None])
-    sub_pts = []
-    for s in subs:
-        if s.get("kind") in ("minor_distribution", "traction", "industrial"):
-            continue
-        x, y = TO_M.transform(s["lon"], s["lat"]); sub_pts.append((Point(x, y), s))
-    sub_trees = {c: Nearest([p for p, s in sub_pts if (s["kv"] or 0) >= c], [s for p, s in sub_pts if (s["kv"] or 0) >= c]) for c in line_classes}
-    sub_any = Nearest([p for p, s in sub_pts], [s for p, s in sub_pts])
-
+    G = load_geo(args.geo_cache_dir or args.cache_dir)
     for r in recs:
-        r["power"] = {"lines_by_class": [], "subs_by_class": []}; r["gasline"] = {}
-        if r["lat"] is None:
-            r["geo_note"] = "No coordinates on listing"; score(r); continue
-        x, y = TO_M.transform(r["lon"], r["lat"]); pt = Point(x, y)
-        for c in line_classes:
-            mi, meta = line_trees[c].query(pt)
-            if mi is not None:
-                r["power"]["lines_by_class"].append({"class": c, "kv": meta[0], "owner": meta[1], "mi": round(mi, 2)})
-        for c in line_classes:
-            mi, s = sub_trees[c].query(pt)
-            if mi is not None:
-                r["power"]["subs_by_class"].append({"class": c, "kv": s["kv"], "name": s["name"], "operator": s["operator"], "mi": round(mi, 2), "ref": s["osm"]})
-        mi, s = sub_any.query(pt)
-        if mi is not None:
-            r["power"]["nearest_sub"] = {"kv": s["kv"], "name": s["name"], "mi": round(mi, 2), "ref": s["osm"]}
-            r["power"]["subs_by_class"].append({"class": 0, "kv": s["kv"], "name": s["name"], "operator": s["operator"], "mi": round(mi, 2), "ref": s["osm"]})
-        lb = r["power"]["lines_by_class"]
-        if lb:
-            r["power"]["nearest_line"] = min(lb, key=lambda c: c["mi"])
-            hv = [c for c in lb if c["class"] >= 230]
-            r["power"]["nearest_230"] = min(hv, key=lambda c: c["mi"]) if hv else None
-        mi, a = gas_tree.query(pt)
-        if mi is not None:
-            r["gasline"] = {"mi": round(mi, 2), "operator": clean(a.get("Operator")), "type": clean(a.get("TYPEPIPE"))}
-        score(r)
+        geo_apply(r, G)
 
     # contacts
     curated = {}

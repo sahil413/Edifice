@@ -1,0 +1,93 @@
+name: Enrich manually added sites
+
+# Sites added in the app ("Add site") are queued in Firestore with status "pending".
+# This job fills them from public sources (parcel location, power/gas distances, utilities,
+# community/annexation, scores) and writes the record back. Nothing is committed; logs print counts only.
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Re-enrich every manual site, not just queued ones"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity Federation (keyless)
+
+concurrency:
+  group: enrich-sites
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    if: ${{ vars.FIREBASE_WEB_CONFIG != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SITES_PASSWORD: ${{ secrets.SITES_PASSWORD }}
+      FIREBASE_PROJECT: ${{ fromJSON(vars.FIREBASE_WEB_CONFIG || '{"projectId":""}').projectId }}
+      EDKS_GEO_MAX_AGE_H: "168"   # reuse the daily refresh's public geodata instead of re-pulling it
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install deps
+        run: pip install -q -r pipeline/requirements.txt firebase-admin
+
+      - name: Google auth (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Anything queued?
+        id: q
+        run: |
+          if [ "${{ inputs.all }}" = "true" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          n=$(python3 -W ignore pipeline/edks.py enrich --count)
+          echo "queued: $n"
+          if [ "$n" != "0" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; fi
+
+      # Public GIS layers only; restore, never save (the daily refresh owns this cache).
+      - name: Restore public geodata cache
+        if: steps.q.outputs.go == '1'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/geocache
+          key: geocache-${{ github.run_id }}
+          restore-keys: geocache-
+
+      - name: Decrypt private inputs into runner temp
+        if: steps.q.outputs.go == '1'
+        run: |
+          test -n "$SITES_PASSWORD" || { echo "SITES_PASSWORD repo secret is missing"; exit 1; }
+          python3 pipeline/crypt.py dec pipeline/contacts.enc "$RUNNER_TEMP/contacts.json"
+          python3 pipeline/crypt.py dec pipeline/issues.enc "$RUNNER_TEMP/issues.json"
+          python3 pipeline/crypt.py dec pipeline/local_review.enc "$RUNNER_TEMP/local_review.json"
+          python3 pipeline/crypt.py dec pipeline/tracker_review.enc "$RUNNER_TEMP/tracker_review.json"
+          if [ -f pipeline/state.enc ]; then python3 pipeline/crypt.py dec pipeline/state.enc "$RUNNER_TEMP/state.json"; fi
+          if [ -f pipeline/tracker_state.enc ]; then python3 pipeline/crypt.py dec pipeline/tracker_state.enc "$RUNNER_TEMP/tracker_state.json"; fi
+
+      # state/tracker_state are read from temp copies; the encrypted state in the repo is not touched.
+      - name: Enrich
+        if: steps.q.outputs.go == '1'
+        run: |
+          python3 -W ignore pipeline/edks.py enrich ${{ inputs.all && '--all' || '' }} \
+            --cache-dir "$RUNNER_TEMP/geocache" --geo-cache-dir "$RUNNER_TEMP/geocache" \
+            --contacts "$RUNNER_TEMP/contacts.json" --curated "$RUNNER_TEMP/issues.json" \
+            --local-review "$RUNNER_TEMP/local_review.json" --state "$RUNNER_TEMP/state.json" \
+            --tracker-review "$RUNNER_TEMP/tracker_review.json" --tracker-state "$RUNNER_TEMP/tracker_state.json"
+
+      - name: Scrub plaintext
+        if: always()
+        run: rm -rf gha-creds-*.json "$RUNNER_TEMP/contacts.json" "$RUNNER_TEMP/issues.json" "$RUNNER_TEMP/local_review.json" "$RUNNER_TEMP/tracker_review.json" "$RUNNER_TEMP/state.json" "$RUNNER_TEMP/tracker_state.json"

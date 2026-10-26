@@ -137,6 +137,20 @@ jobs:
           pip install -q firebase-admin
           python3 pipeline/edks.py push --data "$RUNNER_TEMP/data/sites.json" --storage "$RUNNER_TEMP/data/storage.json" --password-env SITES_PASSWORD
 
+      # Manually added sites are kept by the push; re-score them daily against today's geodata/community.
+      - name: Re-enrich manual sites
+        if: ${{ env.FIREBASE_WEB_CONFIG != '' }}
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          FIREBASE_PROJECT: ${{ fromJSON(vars.FIREBASE_WEB_CONFIG || '{"projectId":""}').projectId }}
+        run: |
+          python3 -W ignore pipeline/edks.py enrich --all \
+            --cache-dir "$RUNNER_TEMP/geocache" --geo-cache-dir "$RUNNER_TEMP/geocache" \
+            --contacts "$RUNNER_TEMP/contacts.json" --curated "$RUNNER_TEMP/issues.json" \
+            --local-review "$RUNNER_TEMP/local_review.json" --state "$RUNNER_TEMP/state.json" \
+            --tracker-review "$RUNNER_TEMP/tracker_review.json" --tracker-state "$RUNNER_TEMP/tracker_state.json"
+
       # Counts only (no emails or site data in the public log): admins seeded, sites present, live rules == file.
       - name: Verify Firestore
         if: ${{ env.FIREBASE_WEB_CONFIG != '' }}

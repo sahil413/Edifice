@@ -27,7 +27,7 @@ body.gated .wrap{visibility:hidden}
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-auth.js';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc, getDoc, getDocs, collection, collectionGroup, onSnapshot, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc, getDoc, getDocs, collection, collectionGroup, onSnapshot, query, where, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-firestore.js';
 
 const CFG = __FB_CONFIG__, EMU = __FB_EMU__;
 const CERT_LIST_URL = 'https://www.kansascommerce.gov/program/business-incentives-and-services/certified-sites-program/sites/';
@@ -158,11 +158,26 @@ async function blob(id) {
   return JSON.parse(parts.map(p => p.data().j).join(''));
 }
 
+const tsIso = t => t && t.toDate ? t.toDate().toISOString() : (t || '');
+// Manually added sites: a pending stub has no record yet (the enrich job writes j); show a placeholder row.
+function manRow(id, x, restricted) {
+  let r = null; try { r = x.j ? JSON.parse(x.j) : null; } catch (e) { r = null; }
+  if (!r) r = { id, name: (x.edits && x.edits.name) || x.name || x.input || 'New site', input: x.input || '', city: (x.edits && x.edits.city) || '', county: (x.edits && x.edits.county) || '',
+    acres: null, score: 0, overall: 0, infra_score: 0, sources: ['Manual'], url: '', first_seen: tsIso(x.created).slice(0, 10), lois_created: '', unknown: [], added_by: x.created_by || '' };
+  r.id = id; r.manual = true; r.pending = x.status === 'pending'; r.restricted = !!restricted; r._edits = x.edits || {};
+  r.enriched_at = tsIso(x.enriched).slice(0, 16).replace('T', ' ');
+  if (x.edits && x.edits.name) r.name = x.edits.name;
+  return r;
+}
+
 async function boot(user, email, me0) {
-  const [sites, land, stor, eng] = await Promise.all([getDocs(collection(db, 'sites')), blob('land'), blob('storage'), getDoc(doc(db, 'private', 'email_engine'))]);
+  const admin0 = me0.role === 'admin';
+  const [sites, land, stor, eng, rs] = await Promise.all([getDocs(collection(db, 'sites')), blob('land'), blob('storage'), getDoc(doc(db, 'private', 'email_engine')),
+    admin0 ? getDocs(collection(db, 'rsites')).catch(() => null) : Promise.resolve(null)]);
   if (!land) throw new Error('No site data has been pushed yet');
-  const rows = { land: [], storage: [] };
-  sites.forEach(d => { const x = d.data(); if (rows[x.view]) rows[x.view].push(JSON.parse(x.j)); });
+  const rows = { land: [], storage: [] }, RIDS = new Set();
+  sites.forEach(d => { const x = d.data(); if (x.manual) rows.land.push(manRow(d.id, x, false)); else if (rows[x.view] && x.j) rows[x.view].push(JSON.parse(x.j)); });
+  if (rs) rs.forEach(d => { RIDS.add(d.id); rows.land.push(manRow(d.id, d.data(), true)); });
   const byScore = (a, b) => (b.overall ?? b.score ?? 0) - (a.overall ?? a.score ?? 0);
   const D = Object.assign(land, { sites: rows.land.sort(byScore), cert_list_url: CERT_LIST_URL, pipeline: {} });
   if (stor) D.storage = Object.assign(stor, { rows: rows.storage.sort(byScore) });
@@ -178,14 +193,15 @@ async function boot(user, email, me0) {
     signOut: () => signOut(auth),
     add(e, stage) {
       err = '';
-      const b = writeBatch(db);
-      b.set(doc(db, 'deals', e.site_id, 'events', e.event_id), clean(Object.fromEntries(EVK.map(k => [k, e[k]]))));
-      b.set(doc(db, 'deals', e.site_id), { site_id: e.site_id, view: e.view, name: e.name || '', stage: stage || 'New', updated: serverTimestamp(), updated_by: email });
+      const b = writeBatch(db), R = RIDS.has(e.site_id), dc = R ? 'rdeals' : 'deals';
+      b.set(doc(db, dc, e.site_id, R ? 'revents' : 'events', e.event_id), clean(Object.fromEntries(EVK.map(k => [k, e[k]]))));
+      b.set(doc(db, dc, e.site_id), { site_id: e.site_id, view: e.view, name: e.name || '', stage: stage || 'New', updated: serverTimestamp(), updated_by: email });
       b.commit().catch(fail);
     },
     setFu(siteId, eventId, st) {
       err = '';
-      updateDoc(doc(db, 'deals', siteId, 'events', eventId), { status: st, done_at: st === 'done' ? serverTimestamp() : null, done_by: st === 'done' ? email : null }).catch(fail);
+      const R = RIDS.has(siteId);
+      updateDoc(doc(db, R ? 'rdeals' : 'deals', siteId, R ? 'revents' : 'events', eventId), { status: st, done_at: st === 'done' ? serverTimestamp() : null, done_by: st === 'done' ? email : null }).catch(fail);
     },
     setUser(em, data, isNew) {
       em = em.toLowerCase();
@@ -194,6 +210,15 @@ async function boot(user, email, me0) {
       return isNew ? setDoc(doc(db, 'users', em), d) : updateDoc(doc(db, 'users', em), d);
     },
     removeUser: em => deleteDoc(doc(db, 'users', em.toLowerCase())),
+    // Manual sites: clients only queue a stub or hand edits; the enrich job (service account) fills the record.
+    addManual(id, d, restricted) {
+      if (restricted && role !== 'admin') return Promise.reject(new Error('admins only'));
+      if (restricted) RIDS.add(id);
+      return setDoc(doc(db, restricted ? 'rsites' : 'sites', id), { view: 'land', name: String(d.name || '').slice(0, 160), manual: true, status: 'pending',
+        input: String(d.input || '').slice(0, 2000), created_by: email, created: serverTimestamp(), edits: {} });
+    },
+    editManual: (id, edits, restricted) => updateDoc(doc(db, restricted ? 'rsites' : 'sites', id), { edits, edited_by: email, edited: serverTimestamp(), status: 'pending' }),
+    deleteManual: (id, restricted) => deleteDoc(doc(db, restricted ? 'rsites' : 'sites', id)),
     ready: () => {}
   };
   document.getElementById('data').textContent = JSON.stringify(D).replace(/</g, '\\u003c');
@@ -202,23 +227,34 @@ async function boot(user, email, me0) {
   if (!window.edksApply) throw new Error('App did not start');
   document.body.classList.remove('gated'); $g('gate').hidden = true;
   const apply = (a, b, c) => { window.edksApply(a, b, c); };
-  const tsIso = t => t && t.toDate ? t.toDate().toISOString() : (t || '');
+  let manM = null, manR = [];
+  const pushMan = () => { if (manM && window.edksSites) window.edksSites(manM.concat(manR)); };
+  onSnapshot(query(collection(db, 'sites'), where('manual', '==', true)), q => { manM = q.docs.map(d => manRow(d.id, d.data(), false)); pushMan(); }, fail);
+  if (admin0) onSnapshot(collection(db, 'rsites'), q => { q.docs.forEach(d => RIDS.add(d.id)); manR = q.docs.map(d => manRow(d.id, d.data(), true)); pushMan(); }, fail);
   onSnapshot(collection(db, 'users'), { includeMetadataChanges: false }, q => {
     users = q.docs.map(d => Object.assign({ email: d.id }, d.data()));
     const mine = users.find(u => u.email === email);
     if (!mine) { location.reload(); return; }
+    if (!q.metadata.hasPendingWrites && mine.role !== role && (role === 'admin' || mine.role === 'admin')) { location.reload(); return; }
     if (mine.role !== role) { role = mine.role; document.getElementById('acctWho').textContent = email + ' · ' + role; }
     apply(null, null, users);
   }, fail);
+  let dealsM = {}, dealsR = {}, evM = [], evR = [];
+  const dmap = q => { const o = {}; q.forEach(d => { const x = d.data(); o[(x.view || 'land') + '|' + d.id] = { stage: x.stage, updated: tsIso(x.updated) || new Date().toISOString() }; }); return o; };
+  const emap = q => q.docs.map(d => { const x = d.data(); return Object.assign({}, x, { event_id: d.id, site_id: x.site_id || d.ref.parent.parent.id, reasons: x.reasons || [] }); });
   onSnapshot(collection(db, 'deals'), { includeMetadataChanges: true }, q => {
     pend.d = q.metadata.hasPendingWrites; cache = q.metadata.fromCache; if (!pend.d && !cache) lastOk = new Date();
-    deals = {}; q.forEach(d => { const x = d.data(); deals[x.view + '|' + d.id] = { stage: x.stage, updated: tsIso(x.updated) || new Date().toISOString() }; });
+    dealsM = dmap(q); deals = Object.assign({}, dealsM, dealsR);
     apply(null, deals, null);
   }, fail);
+  if (admin0) {
+    onSnapshot(collection(db, 'rdeals'), q => { dealsR = dmap(q); deals = Object.assign({}, dealsM, dealsR); apply(null, deals, null); }, fail);
+    onSnapshot(collectionGroup(db, 'revents'), q => { evR = emap(q); events = evM.concat(evR); apply(events, null, null); }, fail);
+  }
   let imported = false;
   onSnapshot(collectionGroup(db, 'events'), { includeMetadataChanges: true }, q => {
     pend.e = q.metadata.hasPendingWrites; cache = q.metadata.fromCache; if (!pend.e && !cache) lastOk = new Date();
-    events = q.docs.map(d => { const x = d.data(); return Object.assign({}, x, { event_id: d.id, site_id: x.site_id || d.ref.parent.parent.id, reasons: x.reasons || [] }); });
+    evM = emap(q); events = evM.concat(evR);
     apply(events, null, null);
     if (!imported && !q.metadata.fromCache) { imported = true; importLocal(new Set(events.map(e => e.event_id))); }
   }, fail);

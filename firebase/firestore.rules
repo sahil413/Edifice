@@ -1,7 +1,7 @@
 rules_version = '2';
 // Edifice deal pipeline. Every read needs a signed-in, verified Google account that has a
 // users/{email} doc. Site data, meta and the private engine are written only by the daily
-// pipeline's service account (the Admin SDK bypasses these rules), so clients can never write them.
+// pipeline's service account (the Admin SDK bypasses these rules); clients may only queue manual sites.
 service cloud.firestore {
   match /databases/{database}/documents {
     function email() { return request.auth.token.email.lower(); }
@@ -20,8 +20,47 @@ service cloud.firestore {
               'Under Contract', 'Closed', 'Passed', 'On Hold'];
     }
 
-    // Pipeline output: member-read only.
-    match /sites/{id} { allow read: if member(); allow write: if false; }
+    // Manually added sites (Add site button). A client may only create a pending stub holding the raw
+    // input; the enrichment job (service account) fills the record. Afterwards a client may only change
+    // its hand edits (and so re-queue it). Pipeline docs (no manual flag) stay read-only.
+    function manualId(id) { return id.matches('m-[a-z0-9-]{4,40}'); }
+    function editsOk(m) { return m is map && m.size() <= 30 && m.keys().hasOnly(editKeys()); }
+    function editKeys() {
+      return ['name', 'address', 'city', 'county', 'zip', 'lat', 'lon', 'acres', 'parcels', 'owner', 'zoning',
+              'price_total', 'price_per_acre', 'electric', 'gas', 'water', 'sewer', 'telecom', 'description', 'url'];
+    }
+    function manualCreateOk(id) {
+      let d = request.resource.data;
+      return manualId(id)
+        && d.keys().hasOnly(['view', 'name', 'manual', 'status', 'input', 'created_by', 'created', 'edits'])
+        && d.view == 'land' && d.manual == true && d.status == 'pending'
+        && str(d.input, 2000) && d.input.size() > 0 && str(d.get('name', ''), 160)
+        && d.created_by == email() && d.created == request.time
+        && editsOk(d.get('edits', {}));
+    }
+    function manualEditOk() {
+      let d = request.resource.data;
+      return resource.data.manual == true
+        && d.diff(resource.data).affectedKeys().hasOnly(['edits', 'edited_by', 'edited', 'status'])
+        && d.status == 'pending' && editsOk(d.edits)
+        && d.edited_by == email() && d.edited == request.time;
+    }
+
+    // Pipeline output: member-read only (plus manual-site stubs and hand edits, above).
+    match /sites/{id} {
+      allow read: if member();
+      allow create: if editor() && manualCreateOk(id);
+      allow update: if editor() && manualEditOk();
+      allow delete: if admin() && resource.data.manual == true;
+    }
+    // Restricted (admin-only) sites, e.g. confidential deals under contract. Kept in their own
+    // collections so non-admin list queries never touch them; admins only, enforced here.
+    match /rsites/{id} {
+      allow read: if admin();
+      allow create: if admin() && manualCreateOk(id);
+      allow update: if admin() && manualEditOk();
+      allow delete: if admin();
+    }
     match /meta/{id} { allow read: if member(); allow write: if false; }
     match /private/{id} { allow read: if member(); allow write: if false; }
     match /learnings/{id} { allow read: if member(); allow write: if false; }
@@ -42,49 +81,64 @@ service cloud.firestore {
       allow delete: if admin() && uemail != email();
     }
 
+    function dealOk(siteId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['site_id', 'view', 'name', 'stage', 'updated', 'updated_by'])
+        && d.site_id == siteId && d.view in ['land', 'storage'] && d.stage in stages()
+        && d.updated_by == email() && d.updated is timestamp;
+    }
+    function eventOk(siteId, eventId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['event_id', 'site_id', 'view', 'name', 'type', 'ts',
+               'from_stage', 'to_stage', 'reasons', 'text', 'assignee', 'due', 'status', 'by'])
+        && d.event_id == eventId && d.site_id == siteId && d.view in ['land', 'storage']
+        && d.by == email() && d.ts is string && d.ts.size() <= 40
+        && str(d.get('text', ''), 5000)
+        && (
+          (d.type == 'stage' && d.to_stage in stages()
+            && d.reasons is list && d.reasons.size() >= 1 && d.reasons.size() <= 12)
+          || (d.type == 'note' && d.text.size() > 0)
+          || (d.type == 'followup' && d.text.size() > 0 && d.status == 'open'
+            && str(d.get('assignee', ''), 80) && str(d.get('due', ''), 10))
+        );
+    }
+    function fuFlipOk() {
+      return resource.data.type == 'followup'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'done_at', 'done_by'])
+        && request.resource.data.status in ['open', 'done']
+        && (!('done_by' in request.resource.data) || request.resource.data.done_by in [email(), null]);
+    }
+
     // deals/{siteId}: stage and current state.
     match /deals/{siteId} {
       allow read: if member();
-      allow create, update: if editor()
-        && request.resource.data.keys().hasOnly(['site_id', 'view', 'name', 'stage', 'updated', 'updated_by'])
-        && request.resource.data.site_id == siteId
-        && request.resource.data.view in ['land', 'storage']
-        && request.resource.data.stage in stages()
-        && request.resource.data.updated_by == email()
-        && request.resource.data.updated is timestamp;
+      allow create, update: if editor() && dealOk(siteId);
       allow delete: if admin();
 
       // Stage changes (with reasons), notes, follow-ups. Authored as yourself; history is append-only
       // except a follow-up's status, which any editor can flip.
       match /events/{eventId} {
         allow read: if member();
-        allow create: if editor()
-          && request.resource.data.keys().hasOnly(['event_id', 'site_id', 'view', 'name', 'type', 'ts',
-               'from_stage', 'to_stage', 'reasons', 'text', 'assignee', 'due', 'status', 'by'])
-          && request.resource.data.event_id == eventId
-          && request.resource.data.site_id == siteId
-          && request.resource.data.view in ['land', 'storage']
-          && request.resource.data.by == email()
-          && request.resource.data.ts is string && request.resource.data.ts.size() <= 40
-          && str(request.resource.data.get('text', ''), 5000)
-          && (
-            (request.resource.data.type == 'stage'
-              && request.resource.data.to_stage in stages()
-              && request.resource.data.reasons is list && request.resource.data.reasons.size() >= 1
-              && request.resource.data.reasons.size() <= 12)
-            || (request.resource.data.type == 'note' && request.resource.data.text.size() > 0)
-            || (request.resource.data.type == 'followup' && request.resource.data.text.size() > 0
-              && request.resource.data.status == 'open'
-              && str(request.resource.data.get('assignee', ''), 80)
-              && str(request.resource.data.get('due', ''), 10))
-          );
-        allow update: if editor() && resource.data.type == 'followup'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'done_at', 'done_by'])
-          && request.resource.data.status in ['open', 'done']
-          && (!('done_by' in request.resource.data) || request.resource.data.done_by in [email(), null]);
+        allow create: if editor() && eventOk(siteId, eventId);
+        allow update: if editor() && fuFlipOk();
         allow delete: if admin();
       }
     }
+
+    // Restricted deals (admin-only sites): same shape, admins only. The subcollection is named
+    // 'revents' so the members' collection-group query on 'events' never includes it.
+    match /rdeals/{siteId} {
+      allow read: if admin();
+      allow create, update: if admin() && dealOk(siteId);
+      allow delete: if admin();
+      match /revents/{eventId} {
+        allow read: if admin();
+        allow create: if admin() && eventOk(siteId, eventId);
+        allow update: if admin() && fuFlipOk();
+        allow delete: if admin();
+      }
+    }
+    match /{path=**}/revents/{eventId} { allow read: if admin(); }
 
     // Lets the realtime collection-group listener read every deal's events.
     match /{path=**}/events/{eventId} { allow read: if member(); }

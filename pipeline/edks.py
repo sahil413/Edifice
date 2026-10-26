@@ -22,6 +22,11 @@ Pipeline / admin:
   edks.py push --data sites.json [--storage storage.json] [--email-engine FILE]
   edks.py users list | add EMAIL --role admin|editor|viewer [--name N] | remove EMAIL
   edks.py import FILE                                      import events (JSON or CSV), idempotent by event_id
+Manual sites (ids m-...; admin-only ones live in rsites/rdeals/revents):
+  edks.py add-manual --spec FILE                           create/refresh a manual site + its deal + events from a JSON spec
+  edks.py enrich [--all] [--cache-dir D] [--contacts F --curated F --local-review F --state F --tracker-review F --tracker-state F]
+                                                           enrich pending manual sites (--all: rescore every manual site)
+  edks.py delete-manual SITE_ID                            remove a manual site, its deal and its events
 """
 import argparse, csv, datetime as dt, hashlib, json, os, subprocess, sys, uuid
 
@@ -193,13 +198,17 @@ def cmd_push(a):
         views["storage"] = stor.pop("rows")
     elif a.storage:
         print(f"[edks] WARNING: {a.storage} not found; storage rows left as they are")
-    existing = {d.id: (d.to_dict() or {}) for d in client.collection("sites").select(["view", "h"]).stream()}
+    # Manual sites (Add site / add-manual; ids "m-...") are owned by the enrich job: never overwritten or removed here.
+    existing = {d.id: (d.to_dict() or {}) for d in client.collection("sites").select(["view", "h", "manual"]).stream()}
+    manual = {rid for rid, d in existing.items() if d.get("manual")}
     writes, keep, changed = [], set(), 0
     for view, rows in views.items():
         for r in rows:
             rid = str(r["id"])
             if "/" in rid or rid.startswith("__"):
                 die(f"unusable site id {rid!r}")
+            if rid in manual or rid.startswith("m-"):
+                continue
             j = json.dumps(r, ensure_ascii=False, separators=(",", ":"))
             if len(j) > MAX_DOC:
                 die(f"site {rid} is too large for one document ({len(j)} bytes)")
@@ -210,7 +219,7 @@ def cmd_push(a):
             changed += 1
             writes.append(("set", client.collection("sites").document(rid),
                            {"view": view, "name": r.get("name") or "", "score": r.get("overall", r.get("score")), "h": h, "j": j}))
-    stale = [rid for rid, d in existing.items() if rid not in keep and d.get("view") in views]
+    stale = [rid for rid, d in existing.items() if rid not in keep and d.get("view") in views and rid not in manual]
     for rid in stale:
         writes.append(("delete", client.collection("sites").document(rid), None))
     _put_blob(client, "land", json.dumps(land, ensure_ascii=False, separators=(",", ":")), writes)
@@ -220,7 +229,7 @@ def cmd_push(a):
     if eng is not None:
         writes.append(("set", client.collection("private").document("email_engine"), {"js": eng, "h": _h(eng), "updated": now_iso()}))
     _commit(client, writes)
-    print(f"[edks] pushed: {len(keep)} sites ({changed} changed, {len(stale)} removed), meta {'land+storage' if stor is not None else 'land'}"
+    print(f"[edks] pushed: {len(keep)} sites ({changed} changed, {len(stale)} removed, {len(manual)} manual kept), meta {'land+storage' if stor is not None else 'land'}"
           f"{', email engine' if eng is not None else ''}")
 
 # ------------------------------------------------------------------ users
@@ -406,6 +415,147 @@ def cmd_import(a):
         client.collection("deals").document(sid).set({"stage": st}, merge=True)
     print(f"[edks] imported {n} events ({len(flips)} follow-up status changes, {len(last_stage)} deal stages)")
 
+# ------------------------------------------------------------------ manual sites
+def _cols(restricted):
+    return ("rsites", "rdeals", "revents") if restricted else ("sites", "deals", "events")
+
+def _slug(name):
+    import re
+    return "m-" + (re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:34] or uuid.uuid4().hex[:8])
+
+def cmd_add_manual(a):
+    """Spec: {id?, restricted?, name, input, edits{}, extra{}, stage, by, events:[{type, text, reasons, to_stage,
+    from_stage, assignee, due, ts, key}]}. Idempotent: event ids come from the spec."""
+    sp = json.load(open(a.spec, encoding="utf-8"))
+    client = db()
+    sid = sp.get("id") or _slug(sp["name"]); restricted = bool(sp.get("restricted"))
+    scol, dcol, ecol = _cols(restricted)
+    other = client.collection(_cols(not restricted)[0]).document(sid).get()
+    if other.exists:
+        die(f"{sid} already exists in the other collection")
+    by = sp.get("by") or "bot:Coding Agent"
+    ref = client.collection(scol).document(sid); snap = ref.get()
+    doc = {"view": "land", "name": sp["name"], "manual": True, "status": "pending", "input": sp.get("input", ""),
+           "edits": sp.get("edits") or {}, "extra": sp.get("extra") or {}, "restricted": restricted,
+           "edited_by": by, "edited": dt.datetime.now(dt.timezone.utc)}
+    if not snap.exists:
+        doc.update(created_by=by, created=dt.datetime.now(dt.timezone.utc))
+    ref.set(doc, merge=True)
+    dref = client.collection(dcol).document(sid)
+    dref.set({"site_id": sid, "view": "land", "name": sp["name"], "stage": sp.get("stage") or "New",
+              "updated": dt.datetime.now(dt.timezone.utc), "updated_by": by}, merge=True)
+    n = 0
+    for i, e in enumerate(sp.get("events") or []):
+        eid = "m" + hashlib.sha1(f"{sid}|{e.get('key') or i}".encode()).hexdigest()[:15]
+        ev = {"event_id": eid, "site_id": sid, "view": "land", "name": sp["name"], "type": e["type"],
+              "ts": e.get("ts") or now_iso(), "text": e.get("text", ""), "by": by}
+        for k in ("from_stage", "to_stage", "reasons", "assignee", "due", "status"):
+            if e.get(k) not in (None, ""): ev[k] = e[k]
+        if e["type"] == "followup": ev.setdefault("status", "open")
+        if not dref.collection(ecol).document(eid).get().exists:
+            dref.collection(ecol).document(eid).set(ev); n += 1
+    print(f"[edks] manual site {sid} ({'admin-only' if restricted else 'members'}): stage {sp.get('stage') or 'New'}, {n} new events")
+
+def cmd_delete_manual(a):
+    client = db(); n = 0
+    for restricted in (False, True):
+        scol, dcol, ecol = _cols(restricted)
+        ref = client.collection(scol).document(a.site_id); snap = ref.get()
+        if snap.exists and not (snap.to_dict() or {}).get("manual"):
+            die(f"{a.site_id} is not a manual site")
+        if snap.exists: ref.delete(); n += 1
+        dref = client.collection(dcol).document(a.site_id)
+        for e in dref.collection(ecol).stream(): e.reference.delete(); n += 1
+        if dref.get().exists: dref.delete(); n += 1
+    print(f"[edks] deleted {n} docs for {a.site_id}")
+
+def cmd_enrich(a):
+    """Enrich queued manual sites (status pending) from public sources; --all rescores every manual site.
+    Logs counts only (CI logs are public)."""
+    import shutil, tempfile
+    sys.path.insert(0, HERE)
+    client = db()
+    todo = []
+    for restricted in (False, True):
+        scol = _cols(restricted)[0]
+        q = client.collection(scol).where("manual", "==", True)
+        for d in q.stream():
+            x = d.to_dict() or {}
+            if a.all or x.get("status") == "pending" or (a.site and d.id == a.site):
+                todo.append((scol, d.id, x))
+    if a.site: todo = [t for t in todo if t[1] == a.site]
+    if a.count:
+        print(len(todo)); return
+    if not todo:
+        print("[edks] enrich: nothing queued"); return
+    import scrape, manual
+    G = None
+    if any((x.get("input") or (x.get("edits") or {}).get("lat")) for _, _, x in todo):
+        G = scrape.load_geo(a.geo_cache_dir or a.cache_dir or tempfile.mkdtemp())
+    curated = json.load(open(a.contacts)) if a.contacts and os.path.exists(a.contacts) else {}
+    recs, meta, xtra = [], {}, {}
+    for scol, sid, x in todo:
+        try:
+            r = manual.build(sid, x, G)
+        except Exception as e:
+            print(f"[edks] enrich: one site failed to build ({type(e).__name__})"); continue
+        r["id"] = sid
+        if curated: scrape.attach_contacts(r, curated)
+        recs.append(r); meta[sid] = (scol, x.get("edited") or x.get("created")); xtra[sid] = x.get("extra") or {}
+    tmp = tempfile.mkdtemp(prefix="enrich-")
+    try:
+        data = os.path.join(tmp, "sites.json")
+        json.dump({"generated_at": now_iso(), "sites": recs, "sources": {}, "count": len(recs)}, open(data, "w"))
+        def run(args, label):
+            p = subprocess.run([sys.executable, "-W", "ignore"] + args, capture_output=True, text=True, cwd=HERE)
+            print(f"[edks] enrich: {label} {'ok' if p.returncode == 0 else 'failed (exit %d)' % p.returncode}")
+        def tmpcopy(f):
+            if not f or not os.path.exists(f): return None
+            d = os.path.join(tmp, os.path.basename(f)); shutil.copy(f, d); return d
+        if a.curated and os.path.exists(a.curated):
+            st = tmpcopy(a.state) or os.path.join(tmp, "state.json")
+            if not os.path.exists(st): json.dump({}, open(st, "w"))
+            args = [os.path.join(HERE, "community.py"), "--data", data, "--curated", a.curated, "--state", st]
+            if a.cache_dir: args += ["--cache-dir", os.path.join(a.cache_dir, "community")]
+            if a.local_review: args += ["--local-review", a.local_review]
+            run(args, "community")
+        if a.tracker_review and os.path.exists(a.tracker_review):
+            ts = tmpcopy(a.tracker_state) or os.path.join(tmp, "tracker_state.json")
+            if not os.path.exists(ts): json.dump({}, open(ts, "w"))
+            run([os.path.join(HERE, "tracker.py"), "--data", data, "--review", a.tracker_review, "--state", ts, "--offline"], "tracker")
+        out = json.load(open(data))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    issues = out.get("issues") or {}
+    n = 0
+    for r in out["sites"]:
+        sid = r["id"]; scol, stamp = meta[sid]
+        for k, v in xtra[sid].items():       # hand-curated facts (e.g. a recent annexation) beat the public layers
+            if k in ("community", "annexation") and isinstance(v, dict): r[k] = {**(r.get(k) or {}), **v}
+        ids = set()
+        def walk(v):
+            if isinstance(v, dict):
+                for k, w in v.items():
+                    if k in ("issue_id", "issue") and isinstance(w, str) and w in issues: ids.add(w)
+                    walk(w)
+            elif isinstance(v, list):
+                for w in v:
+                    if isinstance(w, str) and w in issues: ids.add(w)
+                    walk(w)
+        walk(r.get("community")); walk(r.get("annexation"))
+        if ids: r["_issues"] = {i: issues[i] for i in ids}
+        j = json.dumps(r, ensure_ascii=False, separators=(",", ":"))
+        if len(j) > MAX_DOC:
+            print("[edks] enrich: one record too large; skipped"); continue
+        ref = client.collection(scol).document(sid)
+        cur = (ref.get().to_dict() or {})
+        still = (cur.get("edited") or cur.get("created")) == stamp     # re-queued by an edit while we worked?
+        ref.update({"j": j, "h": _h(j), "score": r.get("overall", r.get("score")), "name": (cur.get("edits") or {}).get("name") or cur.get("name") or r.get("name") or "",
+                    "status": "enriched" if still else "pending", "enriched": dt.datetime.now(dt.timezone.utc),
+                    "unknown": r.get("unknown", [])})
+        n += 1
+    print(f"[edks] enrich: {n} of {len(todo)} manual sites updated")
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = ap.add_subparsers(dest="cmd", required=True)
@@ -422,11 +572,17 @@ def main():
     p = sp.add_parser("dump"); p.add_argument("--out")
     p = sp.add_parser("push-learnings"); p.add_argument("file")
     p = sp.add_parser("import"); p.add_argument("file")
+    p = sp.add_parser("add-manual"); p.add_argument("--spec", required=True)
+    p = sp.add_parser("delete-manual"); p.add_argument("site_id")
+    p = sp.add_parser("enrich"); p.add_argument("--all", action="store_true"); p.add_argument("--site"); p.add_argument("--count", action="store_true")
+    for k in ("--cache-dir", "--geo-cache-dir", "--contacts", "--curated", "--local-review", "--state", "--tracker-review", "--tracker-state"):
+        p.add_argument(k)
     p = sp.add_parser("verify"); p.add_argument("--min-admins", type=int, default=1); p.add_argument("--rules")
     a = ap.parse_args()
     {"push": cmd_push, "users": cmd_users, "followups": cmd_followups, "done": lambda a: cmd_status(a, "done"),
      "reopen": lambda a: cmd_status(a, "open"), "note": cmd_note, "followup": cmd_followup, "dump": cmd_dump,
-     "push-learnings": cmd_push_learnings, "import": cmd_import, "verify": cmd_verify}[a.cmd](a)
+     "push-learnings": cmd_push_learnings, "import": cmd_import, "verify": cmd_verify,
+     "add-manual": cmd_add_manual, "delete-manual": cmd_delete_manual, "enrich": cmd_enrich}[a.cmd](a)
 
 if __name__ == "__main__":
     main()

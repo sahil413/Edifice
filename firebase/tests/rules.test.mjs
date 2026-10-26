@@ -28,6 +28,10 @@ beforeEach(async () => {
     await setDoc(doc(db, 'learnings', 'land'), { md: '' });
     await setDoc(doc(db, 'deals', 's1'), { site_id: 's1', view: 'land', name: 'Site', stage: 'New', updated: new Date(), updated_by: ADMIN });
     await setDoc(doc(db, 'deals/s1/events', 'f1'), ev(ADMIN, { event_id: 'f1', type: 'followup', status: 'open', assignee: 'Any bot', due: '' }));
+    await setDoc(doc(db, 'sites', 'm-done1'), { view: 'land', name: 'Manual', manual: true, status: 'enriched', input: '1 Main St', created_by: EDITOR, created: new Date(), j: '{}' });
+    await setDoc(doc(db, 'rsites', 'm-secret1'), { view: 'land', name: 'Secret', manual: true, restricted: true, status: 'enriched', input: 'x', created_by: ADMIN, created: new Date(), j: '{"price":1}' });
+    await setDoc(doc(db, 'rdeals', 'm-secret1'), { site_id: 'm-secret1', view: 'land', name: 'Secret', stage: 'Under Contract', updated: new Date(), updated_by: ADMIN });
+    await setDoc(doc(db, 'rdeals/m-secret1/revents', 'r1'), ev(ADMIN, { event_id: 'r1', site_id: 'm-secret1', type: 'followup', status: 'open', assignee: 'Any bot', due: '2026-11-11' }));
   });
 });
 
@@ -130,4 +134,90 @@ test('only admins manage users', async () => {
   await assertFails(updateDoc(doc(a, 'users', ADMIN), { role: 'viewer' }));                                     // cannot demote self
   await assertFails(deleteDoc(doc(a, 'users', ADMIN)));                                                         // cannot remove self
   await assertSucceeds(updateDoc(doc(a, 'users', ADMIN), { name: 'Renamed' }));
+});
+
+// ---- manual sites (Add site) ----
+const stub = (by, extra = {}) => Object.assign({ view: 'land', name: 'New site', manual: true, status: 'pending', input: '100 Main St, Salina, KS', created_by: by, created: serverTimestamp() }, extra);
+
+test('editors and admins can queue a manual site; viewers and strangers cannot', async () => {
+  await assertSucceeds(setDoc(doc(as(EDITOR), 'sites', 'm-abc123'), stub(EDITOR)));
+  await assertSucceeds(setDoc(doc(as(ADMIN), 'sites', 'm-abc124'), stub(ADMIN, { edits: { acres: 12 } })));
+  await assertFails(setDoc(doc(as(VIEWER), 'sites', 'm-abc125'), stub(VIEWER)));
+  await assertFails(setDoc(doc(as(STRANGER), 'sites', 'm-abc126'), stub(STRANGER)));
+});
+
+test('a queued site is only a pending stub: no record, no score, own author, manual id', async () => {
+  const db = as(EDITOR);
+  await assertFails(setDoc(doc(db, 'sites', 'm-x1'), stub(EDITOR, { j: '{}' })));                        // client cannot write the record
+  await assertFails(setDoc(doc(db, 'sites', 'm-x2'), stub(EDITOR, { score: 99 })));
+  await assertFails(setDoc(doc(db, 'sites', 'm-x3'), stub(EDITOR, { status: 'enriched' })));
+  await assertFails(setDoc(doc(db, 'sites', 'm-x4'), stub(ADMIN)));                                       // spoofed author
+  await assertFails(setDoc(doc(db, 'sites', 'm-x5'), stub(EDITOR, { manual: false })));
+  await assertFails(setDoc(doc(db, 'sites', 'abc123'), stub(EDITOR)));                                    // not a manual id
+  await assertFails(setDoc(doc(db, 'sites', 'm-x6'), stub(EDITOR, { input: '' })));
+  await assertFails(setDoc(doc(db, 'sites', 'm-x7'), stub(EDITOR, { input: 'x'.repeat(2001) })));
+  await assertFails(setDoc(doc(db, 'sites', 'm-x8'), stub(EDITOR, { edits: { score: 100 } })));           // only listed fields are editable
+  await assertFails(setDoc(doc(db, 'sites', 'm-x9'), stub(EDITOR, { restricted: true })));
+});
+
+test('hand edits: only edits/status on manual docs, never pipeline docs', async () => {
+  const db = as(EDITOR);
+  const ed = (extra = {}) => Object.assign({ edits: { acres: 50.5, zoning: 'I-3' }, edited_by: EDITOR, edited: serverTimestamp(), status: 'pending' }, extra);
+  await assertSucceeds(updateDoc(doc(db, 'sites/m-done1'), ed()));
+  await assertFails(updateDoc(doc(db, 'sites/m-done1'), ed({ j: '{"score":100}' })));
+  await assertFails(updateDoc(doc(db, 'sites/m-done1'), ed({ score: 100 })));
+  await assertFails(updateDoc(doc(db, 'sites/m-done1'), ed({ edited_by: ADMIN })));
+  await assertFails(updateDoc(doc(db, 'sites/m-done1'), ed({ edits: { owner: 'x', bogus: 1 } })));
+  await assertFails(updateDoc(doc(db, 'sites/s1'), ed()));                                                  // pipeline site
+  await assertFails(updateDoc(doc(as(VIEWER), 'sites/m-done1'), Object.assign(ed(), { edited_by: VIEWER })));
+  await assertFails(deleteDoc(doc(db, 'sites/m-done1')));
+  await assertFails(deleteDoc(doc(as(ADMIN), 'sites/s1')));                                                 // admins cannot delete pipeline sites
+  await assertSucceeds(deleteDoc(doc(as(ADMIN), 'sites/m-done1')));
+});
+
+// ---- restricted (admin-only) sites ----
+test('viewers and editors cannot read restricted sites, deals or events (get or list)', async () => {
+  for (const e of [VIEWER, EDITOR, STRANGER]) {
+    const db = as(e);
+    await assertFails(getDoc(doc(db, 'rsites/m-secret1')));
+    await assertFails(getDocs(collection(db, 'rsites')));
+    await assertFails(getDoc(doc(db, 'rdeals/m-secret1')));
+    await assertFails(getDocs(collection(db, 'rdeals')));
+    await assertFails(getDoc(doc(db, 'rdeals/m-secret1/revents/r1')));
+    await assertFails(getDocs(collection(db, 'rdeals/m-secret1/revents')));
+    await assertFails(getDocs(collectionGroup(db, 'revents')));
+  }
+  // the members' normal queries still work and contain nothing restricted
+  const ed = as(EDITOR);
+  const sites = await getDocs(collection(ed, 'sites'));
+  if (sites.docs.some(d => d.id === 'm-secret1' || d.data().restricted)) throw new Error('restricted site leaked into sites');
+  const evs = await getDocs(collectionGroup(ed, 'events'));
+  if (evs.docs.some(d => d.data().site_id === 'm-secret1')) throw new Error('restricted event leaked into events');
+  const deals = await getDocs(collection(ed, 'deals'));
+  if (deals.docs.some(d => d.id === 'm-secret1')) throw new Error('restricted deal leaked into deals');
+});
+
+test('viewers and editors cannot write restricted docs', async () => {
+  for (const e of [VIEWER, EDITOR]) {
+    const db = as(e);
+    await assertFails(setDoc(doc(db, 'rsites', 'm-new1'), stub(e)));
+    await assertFails(setDoc(doc(db, 'rdeals', 'm-secret1'), { site_id: 'm-secret1', view: 'land', name: 'Secret', stage: 'Passed', updated: serverTimestamp(), updated_by: e }));
+    await assertFails(setDoc(doc(db, 'rdeals/m-secret1/revents', 'n-' + e), ev(e, { event_id: 'n-' + e, site_id: 'm-secret1' })));
+    await assertFails(updateDoc(doc(db, 'rdeals/m-secret1/revents/r1'), { status: 'done', done_by: e, done_at: serverTimestamp() }));
+  }
+});
+
+test('admins read and write restricted sites, deals and events', async () => {
+  const db = as(ADMIN);
+  await assertSucceeds(getDoc(doc(db, 'rsites/m-secret1')));
+  await assertSucceeds(getDocs(collection(db, 'rsites')));
+  await assertSucceeds(getDocs(collection(db, 'rdeals')));
+  await assertSucceeds(getDocs(collectionGroup(db, 'revents')));
+  await assertSucceeds(setDoc(doc(db, 'rsites', 'm-new2'), stub(ADMIN)));
+  const b = writeBatch(db);
+  b.set(doc(db, 'rdeals/m-secret1/revents', 'st1'), ev(ADMIN, { event_id: 'st1', site_id: 'm-secret1', type: 'stage', from_stage: 'LOI Submitted', to_stage: 'Under Contract', reasons: ['Price'], text: '' }));
+  b.set(doc(db, 'rdeals', 'm-secret1'), { site_id: 'm-secret1', view: 'land', name: 'Secret', stage: 'Under Contract', updated: serverTimestamp(), updated_by: ADMIN });
+  await assertSucceeds(b.commit());
+  await assertSucceeds(updateDoc(doc(db, 'rdeals/m-secret1/revents/r1'), { status: 'done', done_by: ADMIN, done_at: serverTimestamp() }));
+  await assertFails(setDoc(doc(db, 'rdeals/m-secret1/revents', 'bad'), ev(EDITOR, { event_id: 'bad', site_id: 'm-secret1' })));  // still authored as yourself
 });
