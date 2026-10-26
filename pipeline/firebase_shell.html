@@ -9,6 +9,9 @@
 #gate .btn[disabled]{opacity:.4;cursor:default}
 #gate .msg{min-height:1.4em;margin-top:14px;color:var(--mut)}
 #gate .dash{border:1px dashed var(--line);padding:10px 12px;margin-top:14px}
+#gateErr{border:1px solid #F14B21;padding:10px 12px;margin-top:14px}
+#gateErr pre{white-space:pre-wrap;word-break:break-word;margin:0;font-size:12px;line-height:1.5;max-height:40vh;overflow:auto}
+#gateErr .row{display:flex;gap:8px;flex-wrap:wrap}
 body.gated .wrap{visibility:hidden}
 </style>
 <div id="gate" role="dialog" aria-modal="true" aria-labelledby="gateT"><div class="box">
@@ -18,6 +21,8 @@ body.gated .wrap{visibility:hidden}
  <button class="btn" type="button" id="gateIn" hidden>Sign in with Google</button>
  <button class="btn" type="button" id="gateOut" hidden>Sign out</button>
  <div class="lbl mono msg" id="gateMsg" role="status">Checking sign-in</div>
+ <div id="gateErr" role="alert" hidden><pre class="mono" id="gateErrTxt"></pre>
+  <div class="row"><button class="btn" type="button" id="gateRetry">Try again</button><button class="btn" type="button" id="gateCopy">Copy error details</button></div></div>
 </div></div>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-app.js';
@@ -31,25 +36,79 @@ const auth = getAuth(app);
 const db = initializeFirestore(app, EMU ? {} : { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
 if (EMU) { connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true }); connectFirestoreEmulator(db, '127.0.0.1', 8080); }
 const $g = id => document.getElementById(id);
+let lastErr = '';
 const gate = (sub, msg, btn) => {
   document.body.classList.add('gated'); $g('gate').hidden = false;
   if (sub != null) $g('gateSub').textContent = sub;
   $g('gateMsg').textContent = msg || '';
   $g('gateIn').hidden = btn !== 'in'; $g('gateOut').hidden = btn !== 'out';
+  $g('gateErr').hidden = true;
 };
 const errTxt = e => (e && e.code === 'permission-denied') ? 'not allowed for your role' : (e && (e.code || e.message)) || String(e);
+// Full, copyable error report (no tokens or data: just code, message, account and environment).
+const showErr = (what, e, email, retry) => {
+  const code = (e && e.code) || (e && e.name) || 'error';
+  const msg = (e && e.message) || String(e || '');
+  lastErr = [
+    'What: ' + what,
+    'Code: ' + code,
+    'Message: ' + msg,
+    'Account: ' + (email || (auth.currentUser && auth.currentUser.email) || '(not signed in)'),
+    'Email verified: ' + (auth.currentUser ? String(auth.currentUser.emailVerified) : 'n/a'),
+    'Project: ' + CFG.projectId + ' · authDomain ' + CFG.authDomain + ' · SDK __FB_VER__',
+    'Page: ' + location.origin + location.pathname,
+    'Time: ' + new Date().toISOString(),
+    'Browser: ' + navigator.userAgent,
+  ].join('\n');
+  $g('gateErrTxt').textContent = lastErr;
+  $g('gateErr').hidden = false;
+  $g('gateRetry').onclick = retry || (() => location.reload());
+  console.warn('[edks] ' + what, (e && e.code) || '');
+};
+$g('gateCopy').onclick = async () => {
+  let ok = false;
+  try { await navigator.clipboard.writeText(lastErr); ok = true; } catch (x) {
+    const t = document.createElement('textarea'); t.value = lastErr; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select(); try { ok = document.execCommand('copy'); } catch (y) {} t.remove();
+  }
+  $g('gateCopy').textContent = ok ? 'Copied' : 'Copy failed: select the text above';
+  setTimeout(() => { $g('gateCopy').textContent = 'Copy error details'; }, 2500);
+};
+const SIGNIN_MSG = {
+  'auth/popup-closed-by-user': 'The Google sign-in window was closed before finishing.',
+  'auth/cancelled-popup-request': 'Another sign-in window was already open.',
+  'auth/user-cancelled': 'Sign-in was cancelled.',
+  'auth/network-request-failed': 'Network error reaching Google. Check the connection and try again.',
+  'auth/unauthorized-domain': 'This site is not an authorized sign-in domain for the project.',
+  'auth/internal-error': 'Google sign-in hit an internal error.',
+  'auth/too-many-requests': 'Too many attempts. Wait a minute and try again.',
+  'auth/web-storage-unsupported': 'This browser is blocking storage needed for sign-in (private mode or blocked cookies).',
+};
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
-$g('gateIn').onclick = async () => {
+const signIn = async () => {
+  $g('gateErr').hidden = true;
   $g('gateIn').disabled = true; $g('gateMsg').textContent = 'Opening Google sign-in';
   try { await signInWithPopup(auth, provider); }
   catch (e) {
-    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) { await signInWithRedirect(auth, provider); return; }
-    $g('gateMsg').textContent = e && e.code === 'auth/popup-closed-by-user' ? 'Sign-in cancelled' : 'Sign-in failed · ' + errTxt(e);
+    const code = e && e.code;
+    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+      $g('gateMsg').textContent = 'Pop-up blocked · continuing in this tab';
+      try { await signInWithRedirect(auth, provider); return; }
+      catch (r) { $g('gateMsg').textContent = 'Sign-in failed'; showErr('Google sign-in (redirect after pop-up was blocked)', r, '', signIn); return; }
+    }
+    $g('gateMsg').textContent = SIGNIN_MSG[code] || 'Sign-in failed';
+    showErr('Google sign-in (pop-up)', e, '', signIn);
   } finally { $g('gateIn').disabled = false; }
 };
+$g('gateIn').onclick = signIn;
 $g('gateOut').onclick = () => signOut(auth);
-getRedirectResult(auth).catch(e => { $g('gateMsg').textContent = 'Sign-in failed · ' + errTxt(e); });
+getRedirectResult(auth).catch(e => {
+  $g('gateMsg').textContent = SIGNIN_MSG[e && e.code] || 'Sign-in failed';
+  $g('gateIn').hidden = false; showErr('Google sign-in (redirect result)', e, '', signIn);
+});
+window.addEventListener('unhandledrejection', ev => { if (!started) showErr('Unexpected error before the app started', ev.reason); });
+window.addEventListener('error', ev => { if (!started && ev.error) showErr('Unexpected script error before the app started', ev.error); });
 
 let started = false;
 onAuthStateChanged(auth, async user => {
@@ -57,13 +116,39 @@ onAuthStateChanged(auth, async user => {
   if (!user) { $g('gateT').textContent = 'Kansas sites.'; gate('Private research and deal pipeline. Sign in with your Edifice Google account.', '', 'in'); return; }
   const email = (user.email || '').toLowerCase();
   gate(null, 'Checking access for ' + email);
+  const retry = () => location.reload();
+  if (!email) {
+    $g('gateT').textContent = 'No access.';
+    gate('This Google account did not share an email address.', '', 'out');
+    showErr('Access check', { code: 'auth/no-email', message: 'Signed-in user has no email (uid ' + user.uid + ')' }, '', retry); return;
+  }
+  if (!user.emailVerified) {
+    $g('gateT').textContent = 'No access.';
+    gate(email + ' is not a verified Google email.', '', 'out');
+    showErr('Access check', { code: 'auth/email-not-verified', message: 'Firebase reports emailVerified=false for this account' }, email, retry); return;
+  }
   let me = null;
-  try { const s = await getDoc(doc(db, 'users', email)); if (s.exists()) me = s.data(); } catch (e) { me = null; }
-  if (!me || !user.emailVerified) { gate(email + ' does not have access. Ask an admin to add this address in Settings.', '', 'out'); $g('gateT').textContent = 'No access.'; return; }
+  try { const s = await getDoc(doc(db, 'users', email)); if (s.exists()) me = s.data(); }
+  catch (e) {
+    if (e && e.code === 'permission-denied') {
+      // Rules only let roster members read their own users doc, so a denial here means this address is not on the list.
+      $g('gateT').textContent = 'No access.';
+      gate(email + ' is not on the access list. Ask an admin to add this address in Settings, or sign out and pick your Edifice account.', '', 'out');
+      showErr('Access check: read users/' + email + ' (denied: address not on the access list)', e, email, retry); return;
+    }
+    $g('gateT').textContent = 'Access check failed.';
+    gate('Signed in as ' + email + ', but reading the access list failed.', '', 'out');
+    showErr('Access check: read users/' + email, e, email, retry); return;
+  }
+  if (!me) {
+    $g('gateT').textContent = 'No access.';
+    gate(email + ' is not on the access list. Ask an admin to add this address in Settings, or sign out and pick your Edifice account.', '', 'out');
+    showErr('Access check', { code: 'not-on-access-list', message: 'No users/' + email + ' document' }, email, retry); return;
+  }
   started = true;
   gate(null, 'Loading sites');
   try { await boot(user, email, me); }
-  catch (e) { started = false; console.error(e); gate('The data could not be loaded.', errTxt(e), 'out'); }
+  catch (e) { started = false; $g('gateT').textContent = 'Could not load.'; gate('Signed in as ' + email + ', but the data could not be loaded.', '', 'out'); showErr('Loading data from Firestore', e, email, () => location.reload()); }
 });
 
 async function blob(id) {
