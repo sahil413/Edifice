@@ -19,6 +19,8 @@ jobs:
     env:
       SITES_PASSWORD: ${{ secrets.SITES_PASSWORD }}
       PASSWORD_ENV: SITES_PASSWORD
+      PIPELINE_URL: ${{ secrets.PIPELINE_URL }}
+      PIPELINE_TOKEN: ${{ secrets.PIPELINE_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 

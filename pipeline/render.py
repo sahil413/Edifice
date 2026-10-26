@@ -31,6 +31,28 @@ def load_email_engine(path, password_env):
         print("[render] WARNING: no email engine available; draft-email panel disabled")
     return EMAIL_STUB
 
+def load_pipeline_config(password_env):
+    """Deal-pipeline client config (Apps Script URL, shared token, admin users). Kept encrypted in
+    pipeline/pipeline_config.enc; repo secrets PIPELINE_URL / PIPELINE_TOKEN override it in CI.
+    It is only inlined into the page before StaticCrypt runs."""
+    cfg = {}
+    enc = os.path.join(HERE, "pipeline_config.enc")
+    if os.path.exists(enc) and os.environ.get(password_env):
+        r = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-iter", "200000", "-salt",
+                            "-pass", f"env:{password_env}", "-in", enc], capture_output=True)
+        if r.returncode == 0:
+            try:
+                cfg = json.loads(r.stdout.decode("utf-8"))
+            except ValueError:
+                print("[render] WARNING: pipeline_config.enc is not valid JSON")
+        else:
+            print("[render] WARNING: could not decrypt pipeline_config.enc")
+    for key, env in (("url", "PIPELINE_URL"), ("token", "PIPELINE_TOKEN")):
+        if os.environ.get(env):
+            cfg[key] = os.environ[env]
+    print(f"[render] pipeline sync: {'configured' if cfg.get('url') and cfg.get('token') else 'not configured (browser-only)'}; users {len(cfg.get('users') or [])}")
+    return cfg
+
 def build_html(data, engine=EMAIL_STUB):
     data = dict(data, cert_list_url=CERT_LIST_URL)
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
@@ -78,6 +100,13 @@ def verify(enc_path, data):
     if data.get("storage"): probes |= {"sf_per_capita", "zoning_rules", "own_facility"}
     probes |= {"function genDraft", "edks_prefs_", "Kansas-based investor"}
     probes |= {"__DATA__", "score_parts", "lines_by_class", "community_rules", "annexation_counts", "infra_score"}
+    pc = data.get("pipeline") or {}
+    secret_hit = bool(pc.get("token")) and pc["token"] in html
+    if pc: probes |= {"edks_pipe_v1", "followup_status", "sheet_url"}
+    for u in pc.get("users") or []:
+        if u.get("email"): probes.add(u["email"])
+    if secret_hit:
+        sys.exit("[render] FAIL: pipeline token visible in encrypted output")
     leaks = [p for p in probes if p in html]
     if leaks:
         sys.exit(f"[render] PLAINTEXT LEAK: {len(leaks)} strings found in {enc_path}, e.g. {leaks[:3]}")
@@ -101,6 +130,7 @@ def main():
         print(f"[render] merged storage view: {len(data['storage'].get('rows', []))} rows")
     elif a.storage:
         print(f"[render] WARNING: --storage {a.storage} not found; storage view will be empty")
+    data["pipeline"] = load_pipeline_config(a.password_env)
     html = build_html(data, load_email_engine(a.email_engine, a.password_env))
     tmp = tempfile.mkdtemp(prefix="edks_")
     try:

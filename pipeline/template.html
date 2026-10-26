@@ -28,13 +28,12 @@ h1 strong{font-weight:500}
 .sub{color:var(--mut);font-size:15px;max-width:760px;line-height:1.5}
 .stats{display:flex;gap:22px;flex-wrap:wrap;margin:18px 0}
 .stat b{display:block;font-size:26px;font-weight:400}
-.filters{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:rgba(10,10,10,.92);border:1px solid var(--line);padding:12px}
+.filters{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}@media(min-width:640px){.filters{grid-template-columns:repeat(3,1fr)}}
 .filters label{display:flex;flex-direction:column;gap:4px}
 .filters input,.filters select{background:#000;color:#fff;border:1px solid var(--line);padding:9px 8px;font:14px 'JetBrains Mono',monospace;border-radius:0;width:100%;-webkit-appearance:none}
 .filters .chk{flex-direction:row;align-items:center;gap:8px;font-size:13px}
 .filters .chk input{width:auto}
 .toggle{display:none}
-@media(min-width:900px){.filters{grid-template-columns:repeat(12,1fr);position:sticky;top:0;z-index:5;backdrop-filter:blur(6px)}}
 .count{margin:14px 0 8px}
 .cards{display:grid;gap:12px}
 .card{background:var(--card);border:1px solid var(--line);padding:14px;cursor:pointer;position:relative}
@@ -86,6 +85,61 @@ p.desc{color:#ccc;font-size:14px;line-height:1.5}
 .mini{display:flex;gap:3px;margin-top:8px}.mini i{display:block;height:4px;background:var(--acc)}.mini span{flex:1;background:#222;height:4px;display:block}
 details.pt{border:1px solid var(--line);padding:10px 12px;margin:0 0 8px}details.pt summary{display:flex;justify-content:space-between;text-transform:none;letter-spacing:0;font:14px 'Jost',sans-serif}details.pt summary .mono{color:var(--acc)}
 .emgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:640px){.emgrid{grid-template-columns:1fr}}.emgrid select{display:block;width:100%;margin-top:4px;background:#000;color:#fff;border:1px solid var(--line);padding:9px 8px;font:13px 'JetBrains Mono',monospace;border-radius:0}.emcc{margin-top:8px}.emcc .cc{display:block;font-size:13px;color:#ccc;margin:4px 0}.emprev{border:1px solid var(--line);padding:8px 10px;margin:4px 0 8px;font:13px 'Jost',sans-serif;color:#ddd;white-space:pre-wrap;word-break:break-word}button.btn{background:#000;cursor:pointer}.emin{display:block;width:100%;box-sizing:border-box;background:#000;color:#ddd;border:1px solid var(--line);padding:8px 10px;margin:4px 0 8px;font:13px/1.45 'Jost',sans-serif;border-radius:0;resize:vertical}textarea.emin{min-height:200px;white-space:pre-wrap}.emfb{display:flex;gap:8px;align-items:stretch}.emfb .emin{margin:4px 0;flex:1;min-width:0}.emfb .btn{margin:4px 0}.emnote{font-size:12px;color:#aaa;margin:2px 0 6px}.emtpl{font-size:12px;color:#ccc;margin:10px 0 4px}.emwarn{border:1px solid #c9a227;color:#f0d36b;padding:6px 9px;margin:6px 0;font-size:12.5px}.emctl{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:6px 0}.seg{display:inline-flex}.seg button{background:#000;color:#aaa;border:1px solid var(--line);padding:5px 9px;font:12px 'JetBrains Mono',monospace;cursor:pointer;margin-left:-1px}.seg button.on{color:#000;background:#fff}.emctl select{background:#000;color:#fff;border:1px solid var(--line);padding:5px;font:12px 'JetBrains Mono',monospace}.cc.inl{display:inline-block;margin-left:6px}.linkbtn{background:none;border:0;color:#aaa;text-decoration:underline;cursor:pointer;font:inherit;padding:0}a.btn.dis{opacity:.4;cursor:not-allowed}.muted{color:#888}
+
+.tools{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:12px 0 10px}
+.tbtn{background:#000;color:#fff;border:1px solid var(--line);padding:10px 14px;font:500 12px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-radius:0}
+.tbtn:hover,.tbtn.on{border-color:var(--acc)}.tbtn b{color:var(--acc);font-weight:500}
+.tools .seg button{padding:10px 12px;letter-spacing:.12em;text-transform:uppercase;font-size:11px}
+.tools .count{margin:0}
+.stagebar{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line);margin:18px 0 0}
+.stagebar button{background:rgba(10,10,10,.85);border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);color:#fff;padding:10px 10px 9px;text-align:left;cursor:pointer;font:inherit}
+.stagebar button b{display:block;font:400 22px 'JetBrains Mono',monospace;line-height:1.1}
+.stagebar button span{font:500 10px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.stagebar button:hover{background:#151515}.stagebar button.on{background:#1b1b1b;outline:1px solid var(--acc);outline-offset:-1px}.stagebar button.on span{color:var(--acc)}
+.badge.stg{border-color:#fff;color:#fff}.badge.stg.s-new{border-style:dashed;border-color:#666;color:var(--mut)}.badge.stg.s-hot{border-color:var(--acc);color:var(--acc)}.badge.stg.s-won{background:var(--acc);border-color:var(--acc);color:#000}.badge.stg.s-out{border-color:#555;color:#888}
+.tblwrap{overflow-x:auto;max-width:100%}
+.board{display:none;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);overflow-x:auto;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.board.on{display:grid}
+.bcol{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:160px;background:rgba(10,10,10,.85)}
+.bcol h5{margin:0;padding:10px;border-bottom:1px solid var(--line);font:500 11px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between}
+.bcard{margin:8px;padding:10px;background:var(--card);border:1px solid var(--line);cursor:pointer;font-size:14px}.bcard:hover{border-color:var(--acc)}
+.bcard .bh{display:flex;justify-content:space-between;gap:8px}.bcard b{font-weight:500}.acc{color:var(--acc)}
+.bcard .lbl{display:block;margin:4px 0 8px;letter-spacing:.04em;text-transform:none}
+.inp{display:block;width:100%;background:#000;color:#fff;border:1px solid var(--line);padding:9px 8px;font:14px 'Jost',system-ui,sans-serif;border-radius:0;-webkit-appearance:none;appearance:none}
+.inp.sel{font:12px 'JetBrains Mono',monospace}textarea.inp{resize:vertical;line-height:1.45}
+.inp:focus{outline:1px solid var(--acc);outline-offset:-1px}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);margin:0 0 16px}
+@media(max-width:640px){.facts{grid-template-columns:1fr 1fr}}
+.fact{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 12px;min-width:0}
+.fact .lbl{display:block;margin-bottom:4px}.fact b{display:block;font:400 18px 'JetBrains Mono',monospace;word-break:break-word}.fact b .badge{font-size:9px}
+.fact small{display:block;color:var(--mut);font-size:12px;margin-top:3px;line-height:1.4;word-break:break-word}
+details.col{margin:0 0 -1px;padding:0;border:1px solid var(--line)}
+details.col>summary{list-style:none;padding:13px 12px;display:flex;justify-content:space-between;gap:12px;color:#fff}
+details.col>summary::-webkit-details-marker{display:none}
+details.col>summary::after{content:'+';color:var(--acc);font-size:16px;line-height:1}details.col[open]>summary::after{content:'\2212'}
+details.col>div{padding:2px 12px 4px}details.col .sec{margin-bottom:12px}
+.cols{margin:0 0 20px}
+.deal{border:1px solid var(--line);padding:12px;margin:0 0 20px}
+.dealtop{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 16px}.dealtop .inp{width:auto;min-width:200px}
+.deal .sec{margin:0 0 18px}.deal .sec:last-child{margin:0}
+.thread .ev,.ev{border-bottom:1px solid var(--line);padding:8px 0;font-size:14px;line-height:1.45}.ev .meta,.fu .meta{display:block;font:11px 'JetBrains Mono',monospace;color:var(--mut);margin:2px 0}
+.fu{display:flex;gap:10px;align-items:flex-start;border:1px dashed #666;padding:8px 10px;margin:0 0 6px;font-size:14px;cursor:pointer}
+.fu input{margin-top:3px;accent-color:#F14B21}.fu.done{border-style:solid;border-color:var(--line);color:#888}.fu.done .t{text-decoration:line-through}
+.addrow{display:grid;grid-template-columns:1fr 150px 170px auto;gap:6px;margin-top:8px}@media(max-width:760px){.addrow{grid-template-columns:1fr 1fr}.addrow #fuText{grid-column:1/-1}.addrow .btn{grid-column:1/-1}}
+#noteText{margin-top:8px}
+.rchips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.rchips button{background:#000;color:#ccc;border:1px solid var(--line);padding:8px 10px;font:12px 'JetBrains Mono',monospace;cursor:pointer;border-radius:0}
+.rchips button[aria-pressed="true"]{background:#fff;color:#000;border-color:#fff}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.syncst{cursor:pointer}.syncst.off{color:#c9a227}
+.hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.who{display:flex;align-items:center;gap:6px}.who select{background:#000;color:#fff;border:1px solid var(--line);padding:4px 6px;font:11px 'JetBrains Mono',monospace;border-radius:0}
+dialog.small{width:min(560px,100vw)}
+.stchk{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(min-width:640px){.stchk{grid-template-columns:repeat(3,1fr)}}
+.stchk .chk{display:flex;align-items:center;gap:8px}
+.fdlg .btns{border-top:1px solid var(--line);padding-top:14px;margin-top:6px}
+table.lt{display:table;width:auto;min-width:320px;margin:10px 0}.lt td,.lt th{padding:6px 10px;position:static}
+details.lr{margin-top:16px}
 </style>
 </head>
 <body>
@@ -95,15 +149,46 @@ details.pt{border:1px solid var(--line);padding:10px 12px;margin:0 0 8px}details
   <svg width="20" height="30" viewBox="0 0 32 48" fill="none" aria-hidden="true"><path d="M19 1 L31 13 L31 22 L19 34 L19 27 L27 19 L27 16 L19 8 Z" stroke="#F14B21" stroke-width="3"/><path d="M14 13 L14 20 L6 28 L6 31 L14 39 L14 46 L2 34 L2 25 Z" stroke="#F14B21" stroke-width="3"/></svg>
   <span class="wordmark">Edifice</span>
  </a>
- <span class="lbl mono" id="refreshed"></span>
+ <div class="hdr-r"><span class="lbl mono" id="refreshed"></span><span class="lbl mono syncst off" id="sync" role="status" title="Pipeline sync status">Not synced</span><span class="who lbl mono" id="whoWrap" hidden><label for="me">Signed in as</label><select id="me"></select></span></div>
 </header>
 <div class="viewbar"><label class="lbl mono" for="view">View</label><select id="view" aria-label="Choose table"><option value="land">Powered Land</option><option value="storage">Storage</option></select></div>
 <div id="viewLand">
 <div class="eyebrow mono">Kansas · Data-center land</div>
-<h1>Sites <strong>with power &amp; gas</strong></h1>
+<h1>Sites <strong>with power &amp; gas.</strong></h1>
 <p class="sub">Kansas Certified Sites and public LOIS listings (Kansas Commerce, Evergy, Greater Wichita Partnership) of 100+ acres; smaller sites are excluded, and a suspect acreage is kept only if another source shows 100+ acres, ranked 0–100 overall: <b>60% infrastructure</b> (high-voltage transmission, substations, gas pipelines, scale, fiber, water) and <b>40% community</b> (45% laws &amp; zoning, 30% local news about the site’s own city/county, 25% the local economic development org’s data-center/tech marketing and incentives, all with cited sources). Each site also shows whether it is inside city limits. Tap a site for the breakdown, every cited issue and who to call.</p>
 <div class="stats mono" id="stats"></div>
-<div class="filters" id="filters">
+<div class="stagebar" id="sbL" aria-label="Pipeline by stage"></div>
+<div class="tools"><button class="tbtn" id="fbL" type="button" onclick="$('fdL').showModal()">Filters</button><span class="seg"><button type="button" data-v="land" data-mode="list">List</button><button type="button" data-v="land" data-mode="board">Board</button></span><span class="count lbl mono" id="count"></span></div>
+<div class="board" id="bL"></div>
+<div id="listL">
+<div class="cards" id="cards"></div>
+<div class="tblwrap"><table id="tbl"><thead><tr>
+ <th data-k="stage">Stage</th><th data-k="score">Overall</th><th data-k="infra">Infra</th><th data-k="comm">Comm</th><th data-k="name">Site</th><th data-k="county">County</th><th data-k="acres">Acres</th><th data-k="price">Price</th><th data-k="ppa">$/acre</th><th data-k="tx">Best line</th><th data-k="sub">Substation</th><th data-k="gas">Gas pipeline</th><th>Contact</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+<details class="lr" id="lrL"><summary>What your decisions say</summary><div class="db" id="lrLb"></div></details>
+<details id="method"><summary>Scoring method &amp; sources</summary><div id="methodBody" class="db"></div></details>
+</div>
+<div id="viewStorage" hidden>
+<div class="eyebrow mono">Kansas · Self-storage · 6 largest cities</div>
+<h1>Storage <strong>sites &amp; facilities.</strong></h1>
+<p class="sub">Development land of 4–12 acres (5–10 is the target; anything outside is flagged) and existing self-storage facilities for sale in Wichita, Overland Park, Kansas City KS, Olathe, Topeka and Lawrence. Each row is scored 0–100: <b>demand 30</b> (3-mile population, growth, income, renters, permits, lakes), <b>competition 25</b> (self-storage SF per person within 3 mi), <b>visibility 15</b> (KDOT traffic count on the frontage road), <b>zoning 20</b> (by right / conditional / not permitted, code cited) and <b>price 10</b>. Tap a row for the breakdown, format fit, sources and who to call.</p>
+<div class="stats mono" id="sStats"></div>
+<div class="stagebar" id="sbS" aria-label="Pipeline by stage"></div>
+<div class="tools"><button class="tbtn" id="fbS" type="button" onclick="$('fdS').showModal()">Filters</button><span class="seg"><button type="button" data-v="storage" data-mode="list">List</button><button type="button" data-v="storage" data-mode="board">Board</button></span><span class="count lbl mono" id="sCount"></span></div>
+<div class="board" id="bS"></div>
+<div id="listS">
+<div class="cards" id="sCards"></div>
+<div class="tblwrap"><table id="sTbl"><thead><tr>
+ <th data-sk="stage">Stage</th><th data-sk="score">Score</th><th>Type</th><th data-sk="name">Property</th><th data-sk="acres">Size</th><th data-sk="price">Price</th><th data-sk="unit">$/ac · $/SF</th><th>Zoning</th><th data-sk="aadt">Frontage · AADT</th><th data-sk="competition">3-mi supply</th><th data-sk="pop">3-mi demand</th><th>Formats</th><th>Contact</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+<details class="lr" id="lrS"><summary>What your decisions say</summary><div class="db" id="lrSb"></div></details>
+<div class="sec" id="sComps"></div>
+<details id="sMethod"><summary>Storage scoring method &amp; sources</summary><div id="sMethodBody" class="db"></div></details>
+</div>
+</div>
+<dialog id="fdL" class="fdlg small"><div class="dh"><div><div class="lbl mono">Powered Land</div><h2>Filters.</h2></div><button class="close" type="button" onclick="this.closest('dialog').close()" aria-label="Close">Close</button></div><div class="db"><div class="sec"><h4>Filter &amp; sort</h4><div class="filters" id="filters">
  <label><span class="lbl mono">Min acres</span><input id="fAcres" type="number" inputmode="numeric" value="0" min="0" step="50"></label>
  <label><span class="lbl mono">County</span><select id="fCounty"><option value="">All</option></select></label>
  <label><span class="lbl mono">Min line kV</span><select id="fKv"><option value="69">69+</option><option value="115">115+</option><option value="138">138+</option><option value="230">230+</option><option value="345">345</option></select></label>
@@ -113,44 +198,26 @@ details.pt{border:1px solid var(--line);padding:10px 12px;margin:0 0 8px}details
  <label><span class="lbl mono">Min community</span><input id="fComm" type="number" inputmode="numeric" value="0" min="0" max="100" step="5"></label>
  <label><span class="lbl mono">Annexation</span><select id="fAnnex"><option value="">Any</option><option value="annexed">Inside city limits</option><option value="unincorporated">Unincorporated</option><option value="pending">Pending / possible</option></select></label>
  <label><span class="lbl mono">Max $/acre</span><input id="fPpa" type="number" inputmode="numeric" value="" placeholder="any" min="0" step="1000"></label>
- <label><span class="lbl mono">Sort</span><select id="fSort"><option value="score">Overall</option><option value="infra">Infrastructure</option><option value="comm">Community</option><option value="laws">Laws &amp; zoning</option><option value="news">Local news</option><option value="edc">EDC</option><option value="acres">Acres</option><option value="ppa">$/acre (low→high)</option><option value="price">Total price (low→high)</option><option value="tx">Line distance</option><option value="gas">Gas distance</option><option value="name">Name</option><option value="new">Newest</option></select></label>
+ <label><span class="lbl mono">Sort</span><select id="fSort"><option value="score">Overall</option><option value="infra">Infrastructure</option><option value="comm">Community</option><option value="laws">Laws &amp; zoning</option><option value="news">Local news</option><option value="edc">EDC</option><option value="acres">Acres</option><option value="ppa">$/acre (low→high)</option><option value="price">Total price (low→high)</option><option value="tx">Line distance</option><option value="gas">Gas distance</option><option value="stage">Stage</option><option value="name">Name</option><option value="new">Newest</option></select></label>
  <label class="chk"><input id="fCert" type="checkbox"><span class="lbl mono">Certified only</span></label>
  <label class="chk"><input id="fNew" type="checkbox"><span class="lbl mono">New / changed</span></label>
 </div>
-<div class="count lbl mono" id="count"></div>
-<div class="cards" id="cards"></div>
-<table id="tbl"><thead><tr>
- <th data-k="score">Overall</th><th data-k="infra">Infra</th><th data-k="comm">Comm</th><th data-k="name">Site</th><th data-k="county">County</th><th data-k="acres">Acres</th><th data-k="price">Price</th><th data-k="ppa">$/acre</th><th data-k="tx">Best line</th><th data-k="sub">Substation</th><th data-k="gas">Gas pipeline</th><th>Contact</th>
-</tr></thead><tbody></tbody></table>
-<details id="method"><summary>Scoring method &amp; sources</summary><div id="methodBody" class="db"></div></details>
-</div>
-<div id="viewStorage" hidden>
-<div class="eyebrow mono">Kansas · Self-storage · 6 largest cities</div>
-<h1>Storage <strong>sites &amp; facilities</strong></h1>
-<p class="sub">Development land of 4–12 acres (5–10 is the target; anything outside is flagged) and existing self-storage facilities for sale in Wichita, Overland Park, Kansas City KS, Olathe, Topeka and Lawrence. Each row is scored 0–100: <b>demand 30</b> (3-mile population, growth, income, renters, permits, lakes), <b>competition 25</b> (self-storage SF per person within 3 mi), <b>visibility 15</b> (KDOT traffic count on the frontage road), <b>zoning 20</b> (by right / conditional / not permitted, code cited) and <b>price 10</b>. Tap a row for the breakdown, format fit, sources and who to call.</p>
-<div class="stats mono" id="sStats"></div>
-<div class="filters" id="sFilters">
+</div><div class="sec"><h4>Stage</h4><div class="stchk" id="fStageL"></div></div><div class="btns"><button class="btn" type="button" onclick="fReset('land')">Reset filters</button><button class="btn" type="button" onclick="this.closest('dialog').close()">Show results</button></div></div></dialog>
+<dialog id="fdS" class="fdlg small"><div class="dh"><div><div class="lbl mono">Storage</div><h2>Filters.</h2></div><button class="close" type="button" onclick="this.closest('dialog').close()" aria-label="Close">Close</button></div><div class="db"><div class="sec"><h4>Filter &amp; sort</h4><div class="filters" id="sFilters">
  <label><span class="lbl mono">Type</span><select id="sType"><option value="">All</option><option value="land">Development land</option><option value="facility">Existing facility</option></select></label>
  <label><span class="lbl mono">City</span><select id="sCity"><option value="">All</option></select></label>
  <label><span class="lbl mono">Zoning</span><select id="sZone"><option value="">Any</option><option value="right">By right</option><option value="cond">By right or conditional</option><option value="X">Needs rezoning</option></select></label>
  <label><span class="lbl mono">Format</span><select id="sFmt"><option value="">Any</option><option value="drive_up">Drive-up</option><option value="climate">Indoor climate</option><option value="multistory">Multi-story</option><option value="boat_rv">Boat / RV</option><option value="contractor">Contractor garages</option></select></label>
  <label><span class="lbl mono">Min score</span><input id="sScore" type="number" inputmode="numeric" value="0" min="0" max="100" step="5"></label>
  <label><span class="lbl mono">Max price</span><input id="sPrice" type="number" inputmode="numeric" value="" placeholder="any" min="0" step="50000"></label>
- <label><span class="lbl mono">Sort</span><select id="sSort"><option value="score">Score</option><option value="demand">Demand</option><option value="competition">Competition</option><option value="visibility">Visibility</option><option value="zoning">Zoning</option><option value="price">Price (low→high)</option><option value="unit">$/acre or $/SF</option><option value="acres">Acres</option><option value="aadt">Traffic</option><option value="pop">3-mi population</option><option value="new">Newest</option></select></label>
+ <label><span class="lbl mono">Sort</span><select id="sSort"><option value="score">Score</option><option value="demand">Demand</option><option value="competition">Competition</option><option value="visibility">Visibility</option><option value="zoning">Zoning</option><option value="price">Price (low→high)</option><option value="unit">$/acre or $/SF</option><option value="acres">Acres</option><option value="aadt">Traffic</option><option value="pop">3-mi population</option><option value="stage">Stage</option><option value="new">Newest</option></select></label>
  <label class="chk"><input id="sFit" type="checkbox"><span class="lbl mono">5–10 ac only</span></label>
  <label class="chk"><input id="sNew" type="checkbox"><span class="lbl mono">New this week</span></label>
 </div>
-<div class="count lbl mono" id="sCount"></div>
-<div class="cards" id="sCards"></div>
-<table id="sTbl"><thead><tr>
- <th data-sk="score">Score</th><th>Type</th><th data-sk="name">Property</th><th data-sk="acres">Size</th><th data-sk="price">Price</th><th data-sk="unit">$/ac · $/SF</th><th>Zoning</th><th data-sk="aadt">Frontage · AADT</th><th data-sk="competition">3-mi supply</th><th data-sk="pop">3-mi demand</th><th>Formats</th><th>Contact</th>
-</tr></thead><tbody></tbody></table>
-<div class="sec" id="sComps"></div>
-<details id="sMethod"><summary>Storage scoring method &amp; sources</summary><div id="sMethodBody" class="db"></div></details>
-</div>
-</div>
-<dialog id="ip"><div class="dh"><div><div class="lbl mono" id="ipSub"></div><h2 id="ipTitle"></h2></div><button class="close" onclick="ip.close()" aria-label="Close">✕</button></div><div class="db" id="ipBody"></div></dialog>
-<dialog id="dlg"><div class="dh"><div><div id="dBadges"></div><h2 id="dTitle"></h2><div class="lbl mono" id="dSub"></div></div><button class="close" onclick="dlg.close()" aria-label="Close">✕</button></div><div class="db" id="dBody"></div></dialog>
+</div><div class="sec"><h4>Stage</h4><div class="stchk" id="fStageS"></div></div><div class="btns"><button class="btn" type="button" onclick="fReset('storage')">Reset filters</button><button class="btn" type="button" onclick="this.closest('dialog').close()">Show results</button></div></div></dialog>
+<dialog id="why" class="small"><div class="dh"><div><div class="lbl mono" id="whySub"></div><h2 id="whyTitle"></h2></div><button class="close" type="button" onclick="$('why').close()" aria-label="Cancel">Cancel</button></div><div class="db"><div class="sec"><h4>Why?</h4><div class="rchips" id="whyChips"></div><textarea id="whyText" class="inp" rows="3" placeholder="In a sentence: what made the call"></textarea><p class="emnote" id="whyHint"></p><div class="btns"><button class="btn" type="button" id="whySave">Save stage change</button></div><p class="emnote">Saved with a timestamp to this deal’s history and the pipeline sheet. The reasons feed what the sourcing bots look for.</p></div></div></dialog>
+<dialog id="ip"><div class="dh"><div><div class="lbl mono" id="ipSub"></div><h2 id="ipTitle"></h2></div><button class="close" onclick="ip.close()" aria-label="Close">Close</button></div><div class="db" id="ipBody"></div></dialog>
+<dialog id="dlg"><div class="dh"><div><div id="dBadges"></div><h2 id="dTitle"></h2><div class="lbl mono" id="dSub"></div></div><button class="close" onclick="dlg.close()" aria-label="Close">Close</button></div><div class="db" id="dBody"></div></dialog>
 <script id="data" type="application/json">/*__DATA__*/</script>
 <script>
 const D=JSON.parse(document.getElementById('data').textContent);
@@ -185,18 +252,18 @@ function badges(s){let b='';if(s.is_new)b+='<span class="badge">New</span>';else
 function render(){
  const v={};F.forEach(k=>{const el=$(k);v[k]=el.type==='checkbox'?el.checked:el.value});localStorage.setItem('edks_f',JSON.stringify(v));
  const minKv=+v.fKv||69;
- let R=S.filter(s=>{if((s.acres||0)<(+v.fAcres||0))return false;if(v.fCounty&&s.county!==v.fCounty)return false;if((s.overall||0)<(+v.fScore||0))return false;if(cm(s)&&cm(s).score<(+v.fComm||0))return false;if(v.fAnnex){const a=an(s);if(v.fAnnex==='pending'?!(a.pending||a.annex_possible||a.listing_says_annexed):a.status!==v.fAnnex)return false}
+ let R=S.filter(s=>{if(!stOK('land',s.id))return false;if((s.acres||0)<(+v.fAcres||0))return false;if(v.fCounty&&s.county!==v.fCounty)return false;if((s.overall||0)<(+v.fScore||0))return false;if(cm(s)&&cm(s).score<(+v.fComm||0))return false;if(v.fAnnex){const a=an(s);if(v.fAnnex==='pending'?!(a.pending||a.annex_possible||a.listing_says_annexed):a.status!==v.fAnnex)return false}
   if(v.fPpa!==''&&!(pr(s).per_acre!=null&&pr(s).per_acre<=+v.fPpa))return false;
   if(v.fCert&&!s.certified)return false;if(v.fNew&&!(s.is_new||s.is_changed))return false;
   const bl=bestLine(s,minKv);if(v.fKvMi!==''&&(!bl||bl.mi>+v.fKvMi))return false;if(minKv>69&&!bl)return false;
   if(v.fGas!==''&&(!s.gasline||s.gasline.mi>+v.fGas))return false;return true});
- const k=v.fSort;const BIG=1e15;R.sort((a,b)=>k==='ppa'?((pr(a).per_acre??BIG)-(pr(b).per_acre??BIG)||b.overall-a.overall):k==='price'?((pr(a).total??BIG)-(pr(b).total??BIG)||b.overall-a.overall):k==='acres'?(b.acres||0)-(a.acres||0):k==='tx'?((bestLine(a,minKv)||{mi:1e9}).mi-(bestLine(b,minKv)||{mi:1e9}).mi):k==='gas'?((a.gasline||{mi:1e9}).mi-(b.gasline||{mi:1e9}).mi):k==='name'?a.name.localeCompare(b.name):k==='new'?String(b.first_seen>b.lois_created?b.lois_created:b.first_seen).localeCompare(String(a.lois_created)):k==='infra'?b.infra_score-a.infra_score:k==='comm'?((cm(b)||{score:0}).score-(cm(a)||{score:0}).score):(k==='laws'||k==='news'||k==='edc')?((cm(b)?cm(b)[k].score:0)-(cm(a)?cm(a)[k].score:0)):b.overall-a.overall);
+ const k=v.fSort;const BIG=1e15;R.sort((a,b)=>k==='stage'?(stI('land',a.id)-stI('land',b.id)||b.overall-a.overall):k==='ppa'?((pr(a).per_acre??BIG)-(pr(b).per_acre??BIG)||b.overall-a.overall):k==='price'?((pr(a).total??BIG)-(pr(b).total??BIG)||b.overall-a.overall):k==='acres'?(b.acres||0)-(a.acres||0):k==='tx'?((bestLine(a,minKv)||{mi:1e9}).mi-(bestLine(b,minKv)||{mi:1e9}).mi):k==='gas'?((a.gasline||{mi:1e9}).mi-(b.gasline||{mi:1e9}).mi):k==='name'?a.name.localeCompare(b.name):k==='new'?String(b.first_seen>b.lois_created?b.lois_created:b.first_seen).localeCompare(String(a.lois_created)):k==='infra'?b.infra_score-a.infra_score:k==='comm'?((cm(b)||{score:0}).score-(cm(a)||{score:0}).score):(k==='laws'||k==='news'||k==='edc')?((cm(b)?cm(b)[k].score:0)-(cm(a)?cm(a)[k].score:0)):b.overall-a.overall);
  document.querySelectorAll('th[data-k]').forEach(th=>th.classList.toggle('s',th.dataset.k===k));
- $('count').textContent=`${R.length} of ${S.length} sites`;
- $('cards').innerHTML=R.map(s=>{const bl=bestLine(s,minKv),sb=sub(s,minKv);return `<div class="card" data-id="${s.id}"><div class="score">${s.overall}</div><div>${badges(s)}${annexBadge(s)}${regFlag(s)}</div><h3>${esc(s.name)}</h3><div class="lbl mono">${esc(s.city)} · ${esc(s.county)} Co · ${fmt(s.acres,0)} ac</div><div class="subs">${subLine(s)}</div><div class="row mono"><span>$ ${priceLine(s)}</span></div><div class="row mono"><span>⚡ ${bl?bl.kv+' kV '+fmt(bl.mi)+' mi':'—'}</span><span>▣ ${sb?(sb.kv?sb.kv+' kV ':'')+fmt(sb.mi)+' mi':'—'}</span><span>◍ gas ${s.gasline?fmt(s.gasline.mi)+' mi':'—'}</span></div></div>`}).join('');
- document.querySelector('#tbl tbody').innerHTML=R.map(s=>{const bl=bestLine(s,minKv),sb=sub(s,minKv),c=topContact(s);return `<tr data-id="${s.id}"><td class="n" style="color:var(--acc);font-size:16px">${s.overall}</td><td class="n">${s.infra_score}</td><td class="n">${cm(s)?cm(s).score+'<div class="lbl">L'+cm(s).laws.score+' N'+cm(s).news.score+' E'+cm(s).edc.score+'</div>':'—'}</td><td>${badges(s)}${annexBadge(s)}${regFlag(s)}<div>${esc(s.name)}</div><div class="lbl">${esc(s.city)}</div></td><td>${esc(s.county)}</td><td class="n">${fmt(s.acres,0)}</td><td class="n">${totTxt(s)}</td><td class="n">${ppaTxt(s)}</td><td class="n">${bl?bl.kv+' kV · '+fmt(bl.mi)+' mi':'—'}</td><td class="n">${sb?(sb.kv?sb.kv+' kV · ':'')+fmt(sb.mi)+' mi':'—'}</td><td class="n">${s.gasline?fmt(s.gasline.mi)+' mi':'—'}</td><td>${c?esc(c.name||c.org)+'<div class="lbl">'+esc(c.org&&c.name?c.org:'')+'</div>':'—'}</td></tr>`}).join('');
+ $('count').textContent=`${R.length} of ${S.length} sites`;afterRender('land',R);
+ $('cards').innerHTML=R.map(s=>{const bl=bestLine(s,minKv),sb=sub(s,minKv);return `<div class="card" data-id="${s.id}"><div class="score">${s.overall}</div><div>${stB('land',s.id)}${badges(s)}${annexBadge(s)}${regFlag(s)}</div><h3>${esc(s.name)}</h3><div class="lbl mono">${esc(s.city)} · ${esc(s.county)} Co · ${fmt(s.acres,0)} ac</div><div class="subs">${subLine(s)}</div><div class="row mono"><span>$ ${priceLine(s)}</span></div><div class="row mono"><span><span class="lbl">Line</span> ${bl?bl.kv+' kV '+fmt(bl.mi)+' mi':'—'}</span><span><span class="lbl">Sub</span> ${sb?(sb.kv?sb.kv+' kV ':'')+fmt(sb.mi)+' mi':'—'}</span><span><span class="lbl">Gas</span> ${s.gasline?fmt(s.gasline.mi)+' mi':'—'}</span></div></div>`}).join('');
+ document.querySelector('#tbl tbody').innerHTML=R.map(s=>{const bl=bestLine(s,minKv),sb=sub(s,minKv),c=topContact(s);return `<tr data-id="${s.id}"><td>${stB('land',s.id)}</td><td class="n" style="color:var(--acc);font-size:16px">${s.overall}</td><td class="n">${s.infra_score}</td><td class="n">${cm(s)?cm(s).score+'<div class="lbl">L'+cm(s).laws.score+' N'+cm(s).news.score+' E'+cm(s).edc.score+'</div>':'—'}</td><td>${badges(s)}${annexBadge(s)}${regFlag(s)}<div>${esc(s.name)}</div><div class="lbl">${esc(s.city)}</div></td><td>${esc(s.county)}</td><td class="n">${fmt(s.acres,0)}</td><td class="n">${totTxt(s)}</td><td class="n">${ppaTxt(s)}</td><td class="n">${bl?bl.kv+' kV · '+fmt(bl.mi)+' mi':'—'}</td><td class="n">${sb?(sb.kv?sb.kv+' kV · ':'')+fmt(sb.mi)+' mi':'—'}</td><td class="n">${s.gasline?fmt(s.gasline.mi)+' mi':'—'}</td><td>${c?esc(c.name||c.org)+'<div class="lbl">'+esc(c.org&&c.name?c.org:'')+'</div>':'—'}</td></tr>`}).join('');
 }
-document.addEventListener('click',e=>{const b=e.target.closest('[data-panel]');if(b){openPanel(b.dataset.site,b.dataset.panel);return}const el=e.target.closest('[data-id]');if(el&&!el.closest('dialog')){if(/^st-/.test(el.dataset.id))openStorage(el.dataset.id);else openSite(el.dataset.id)}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-panel]');if(b){openPanel(b.dataset.site,b.dataset.panel);return}const el=e.target.closest('[data-id]');if(el&&!el.closest('dialog')&&!e.target.closest('select,input,textarea,label')){if(/^st-/.test(el.dataset.id))openStorage(el.dataset.id);else openSite(el.dataset.id)}});
 const dlg=$('dlg');
 function kv(rows){return '<div class="kv">'+rows.filter(r=>r[1]!==''&&r[1]!=null&&r[1]!=='—').map(r=>`<div>${r[0]}</div><div>${r[1]}</div>`).join('')+'</div>'}
 function openSite(id){const s=S.find(x=>x.id===id);if(!s)return;history.replaceState(null,'','#'+id);
@@ -206,19 +273,17 @@ function openSite(id){const s=S.find(x=>x.id===id);if(!s)return;history.replaceS
  let _pk='';const lines=((s.power||{}).lines_by_class||[]).filter(l=>{const k=l.kv+'|'+l.mi;if(k===_pk)return false;_pk=k;return true}).map(l=>`${l.class}+ kV: ${l.kv} kV at ${fmt(l.mi)} mi (${esc(own(l.owner))})`).join('<br>');
  const P2=s.power||{};const subs=[P2.nearest_sub&&['Any voltage',P2.nearest_sub]].concat((P2.subs_by_class||[]).filter(x=>x.class>=69).map(x=>[x.class+'+ kV',x])).filter(Boolean);const subHtml=subs.map(([lab,x])=>`${lab}: ${x.ref?`<a href="${esc(x.ref)}" target="_blank" rel="noopener">${esc(x.name||'unnamed')}</a>`:esc(x.name||'unnamed')}${x.kv?' · '+x.kv+' kV':''} · ${fmt(x.mi)} mi`).join('<br>');const el=(s.electric||[]).map(e=>[esc(e.provider)+(e.served_kv?` · served by ${e.served_kv} kV`:'')+(e.substation_mi!=null?` · substation ${fmt(e.substation_mi)} mi (listed)`:'')+(e.capability?'<br><small>'+esc(e.capability)+'</small>':'')]).join('<br>');
  const g=s.gas||{},w=s.water||{},sw=s.sewer||{},t=s.telecom||{},h=s.highway||{},r=s.rail||{};
- const contacts=(s.contacts||[]).map(c=>`<div class="contact"><div class="role">${esc(c.role)}</div><div><b>${esc(c.name||c.org)}</b>${c.title?' · '+esc(c.title):''}</div>${c.name&&c.org?`<div class="lbl">${esc(c.org)}</div>`:''}<div class="btns">${c.phone?`<a class="btn" href="${tel(c.phone)}">☎ ${esc(c.phone)}</a>`:''}${c.email?`<a class="btn" href="mailto:${esc(c.email)}?subject=${encodeURIComponent(s.name+' ('+s.city+', KS)')}">✉ ${esc(c.email)}</a>`:''}</div>${c.source?`<div class="src">Source: ${c.source.split(' ; ').map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`).join(' · ')}</div>`:''}</div>`).join('');
- $('dBody').innerHTML=`
- <div class="sec"><div class="btns" style="margin:0 0 14px"><a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Listing ↗</a><a class="btn" href="https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}" target="_blank" rel="noopener">Map ↗</a>${s.certified?`<a class="btn" href="${esc(D.cert_list_url)}" target="_blank" rel="noopener">Certified list ↗</a>`:''}</div></div>
- ${overallSec(s)}
- <div class="sec"><h4>Infrastructure score breakdown (${s.infra_score}/100)</h4>${parts}</div>
- ${priceSec(s)}
- ${annexSec(s)}
- <div class="sec"><h4>Power &amp; gas proximity (GIS)</h4>${kv([['Transmission',lines||'—'],['Substations',subHtml||'—'],['Gas pipeline',s.gasline?`${esc(s.gasline.operator)} (${esc(s.gasline.type)}) · ${fmt(s.gasline.mi)} mi`:'—']])}</div>
- <div class="sec"><h4>Utilities (as listed)</h4>${kv([['Electric',el||'—'],['Natural gas',[g.provider,g.line_in?g.line_in+'″ line':'',g.main_in?g.main_in+'″ main':'',g.psi?g.psi+' psi':''].filter(Boolean).map(esc).join(' · ')||'—'],['Water',[w.provider,w.line_in?w.line_in+'″ line':'',w.peak_mgd?w.peak_mgd+' MGD peak':''].filter(Boolean).map(esc).join(' · ')+(w.capability?'<br><small>'+esc(w.capability)+'</small>':'')||'—'],['Sewer',[sw.provider,sw.line_in?sw.line_in+'″ line':''].filter(Boolean).map(esc).join(' · ')||'—'],['Telecom / fiber',[t.provider,t.capability].filter(Boolean).map(esc).join(' · ')||'—']])}</div>
- <div class="sec"><h4>Site</h4>${kv([['Address',esc([s.address,s.city,'KS',s.zip].filter(Boolean).join(', '))],['Zoning',esc(s.zoning)||'—'],['Highway',esc([h.interstate&&`${h.interstate} ${h.interstate_mi!=null?fmt(h.interstate_mi)+' mi':''}`,h.highway&&`${h.highway} ${h.highway_mi!=null?fmt(h.highway_mi)+' mi':''}`].filter(Boolean).join(' · '))||'—'],['Rail',esc(r.served?'Served — '+(r.railroads||[]).join(', ')+(r.shortline?' · '+r.shortline:''):(r.railroads&&r.railroads.length?r.railroads.join(', '):'—'))],['Sources',esc((s.sources||[]).join(', '))],['First seen',esc(s.first_seen)],['Listing updated',esc((s.lois_modified||'').slice(0,10))]])}${s.description?`<p class="desc">${esc(s.description)}</p>`:''}</div>
- ${outreachSec(s)}
- ${emailSec('land',s,landContacts(s))}
- <div class="sec"><h4>Who to contact</h4>${contacts||'—'}</div>`;
+ const contacts=(s.contacts||[]).map(c=>`<div class="contact"><div class="role">${esc(c.role)}</div><div><b>${esc(c.name||c.org)}</b>${c.title?' · '+esc(c.title):''}</div>${c.name&&c.org?`<div class="lbl">${esc(c.org)}</div>`:''}<div class="btns">${c.phone?`<a class="btn" href="${tel(c.phone)}">Call ${esc(c.phone)}</a>`:''}${c.email?`<a class="btn" href="mailto:${esc(c.email)}?subject=${encodeURIComponent(s.name+' ('+s.city+', KS)')}">Email ${esc(c.email)}</a>`:''}</div>${c.source?`<div class="src">Source: ${c.source.split(' ; ').map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`).join(' · ')}</div>`:''}</div>`).join('');
+ $('dBadges').innerHTML=stB('land',s.id)+$('dBadges').innerHTML;
+ $('dBody').innerHTML=`${landFacts(s)}
+ <div class="btns" style="margin:0 0 16px"><a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Listing ↗</a><a class="btn" href="https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}" target="_blank" rel="noopener">Map ↗</a>${s.certified?`<a class="btn" href="${esc(D.cert_list_url)}" target="_blank" rel="noopener">Certified list ↗</a>`:''}</div>
+ ${dealBox('land',s)}
+ <div class="cols">${col(outreachSec(s))}${col(emailSec('land',s,landContacts(s)))}${col(overallSec(s))}${col(`<div class="sec"><h4>Infrastructure score breakdown (${s.infra_score}/100)</h4>${parts}</div>`)}${col(priceSec(s))}${col(annexSec(s))}
+ ${col(`<div class="sec"><h4>Power &amp; gas proximity (GIS)</h4>${kv([['Transmission',lines||'—'],['Substations',subHtml||'—'],['Gas pipeline',s.gasline?`${esc(s.gasline.operator)} (${esc(s.gasline.type)}) · ${fmt(s.gasline.mi)} mi`:'—']])}</div>`)}
+ ${col(`<div class="sec"><h4>Utilities (as listed)</h4>${kv([['Electric',el||'—'],['Natural gas',[g.provider,g.line_in?g.line_in+'″ line':'',g.main_in?g.main_in+'″ main':'',g.psi?g.psi+' psi':''].filter(Boolean).map(esc).join(' · ')||'—'],['Water',[w.provider,w.line_in?w.line_in+'″ line':'',w.peak_mgd?w.peak_mgd+' MGD peak':''].filter(Boolean).map(esc).join(' · ')+(w.capability?'<br><small>'+esc(w.capability)+'</small>':'')||'—'],['Sewer',[sw.provider,sw.line_in?sw.line_in+'″ line':''].filter(Boolean).map(esc).join(' · ')||'—'],['Telecom / fiber',[t.provider,t.capability].filter(Boolean).map(esc).join(' · ')||'—']])}</div>`)}
+ ${col(`<div class="sec"><h4>Site</h4>${kv([['Address',esc([s.address,s.city,'KS',s.zip].filter(Boolean).join(', '))],['Zoning',esc(s.zoning)||'—'],['Highway',esc([h.interstate&&`${h.interstate} ${h.interstate_mi!=null?fmt(h.interstate_mi)+' mi':''}`,h.highway&&`${h.highway} ${h.highway_mi!=null?fmt(h.highway_mi)+' mi':''}`].filter(Boolean).join(' · '))||'—'],['Rail',esc(r.served?'Served — '+(r.railroads||[]).join(', ')+(r.shortline?' · '+r.shortline:''):(r.railroads&&r.railroads.length?r.railroads.join(', '):'—'))],['Sources',esc((s.sources||[]).join(', '))],['First seen',esc(s.first_seen)],['Listing updated',esc((s.lois_modified||'').slice(0,10))]])}${s.description?`<p class="desc">${esc(s.description)}</p>`:''}</div>`)}
+ ${col(`<div class="sec"><h4>Who to contact</h4>${contacts||'—'}</div>`)}</div>`;
+ drawDeal('land',s.id);
  emInit();
  if(!dlg.open)dlg.showModal();dlg.scrollTop=0;
 }
@@ -229,14 +294,14 @@ function priceSec(s){const p=pr(s);if(!('basis' in p)&&!p.sale&&!p.note)return `
   ['$ per acre',p.per_acre!=null?ppaTxt(s)+(p.per_acre_computed?' <small>(computed: total ÷ listed acres)</small>':''):(p.label?esc(p.label):'—')],
   ['Basis',esc(p.basis)],['Listing says',esc(p.note)],['Lease',esc(p.lease_note)],
   ['Source',`<a href="${esc(s.lois_url||s.url)}" target="_blank" rel="noopener">${esc(p.source||'Listing')}</a>`]];
- return `<div class="sec"><h4>Price</h4>${kv(rows)}${(p.flags||[]).length?'<ul class="why">'+p.flags.map(f=>'<li>⚠ '+esc(f)+'</li>').join('')+'</ul>':''}</div>`}
+ return `<div class="sec"><h4>Price</h4>${kv(rows)}${(p.flags||[]).length?'<ul class="why">'+p.flags.map(f=>'<li>Flag: '+esc(f)+'</li>').join('')+'</ul>':''}</div>`}
 function overallSec(s){const c=cm(s);if(!c)return '';const w=W();
  return `<div class="sec"><h4>Overall ${s.overall} = ${pct(w.overall.infrastructure)} infrastructure + ${pct(w.overall.community)} community</h4>
  <div class="part"><div style="display:flex;justify-content:space-between"><span>Infrastructure (power, gas, scale, fiber, water)</span><span class="mono">${s.infra_score} × ${pct(w.overall.infrastructure)}</span></div><div class="bar"><i style="width:${s.infra_score}%"></i></div></div>
  <div class="part"><div style="display:flex;justify-content:space-between"><span>Community = ${pct(w.community.laws)} laws &amp; zoning + ${pct(w.community.news)} local news + ${pct(w.community.edc)} EDC</span><span class="mono">${c.score} × ${pct(w.overall.community)}</span></div><div class="bar"><i style="width:${c.score}%"></i></div></div>
  <button class="sbtn" data-site="${s.id}" data-panel="laws"><span>Laws &amp; zoning · ${pct(w.community.laws)}<small>${esc(LAWST[c.laws.status]||'')} — zoning district, ordinances, moratoriums, noise/water/setback rules, with sources</small></span><span class="mono">${c.laws.score}</span></button>
  <button class="sbtn" data-site="${s.id}" data-panel="news"><span>Local news · ${pct(w.community.news)}<small>${c.news.items.length?c.news.items.length+' item'+(c.news.items.length===1?'':'s')+' about this city/county':'No local news found'} — tap for items and searches run</small></span><span class="mono">${c.news.score}</span></button>
- <button class="sbtn" data-site="${s.id}" data-panel="edc"><span>Economic development org · ${pct(w.community.edc)}<small>${esc(c.edc.org||'No EDC mapped')}${c.edc.reviewed?' — DC/large-load '+(c.edc.markets_data_centers?'✓':'✗')+' · tech '+(c.edc.markets_tech?'✓':'✗')+' · '+(c.edc.incentives||[]).length+' incentive types':' — '+esc(c.edc.status||'not reviewed')}</small></span><span class="mono">${c.edc.score}</span></button>
+ <button class="sbtn" data-site="${s.id}" data-panel="edc"><span>Economic development org · ${pct(w.community.edc)}<small>${esc(c.edc.org||'No EDC mapped')}${c.edc.reviewed?' — DC/large-load '+(c.edc.markets_data_centers?'yes':'no')+' · tech '+(c.edc.markets_tech?'yes':'no')+' · '+(c.edc.incentives||[]).length+' incentive types':' — '+esc(c.edc.status||'not reviewed')}</small></span><span class="mono">${c.edc.score}</span></button>
  <small class="src">Governing jurisdiction: ${esc(jn(c.jurisdictions.governing))}${c.jurisdictions.secondary.length?' · also counted: '+c.jurisdictions.secondary.map(jn).map(esc).join(', '):''} · statewide</small></div>`}
 function jn(j){if(!j)return '';if(j==='state')return 'Kansas (statewide)';const [t,n]=j.split(':');const N=n.replace(/\b\w/g,c=>c.toUpperCase());return t==='county'?N+' County':'City of '+N}
 function annexSec(s){const a=an(s);const st={annexed:'Inside city limits (annexed)',unincorporated:'Unincorporated (outside city limits)',unknown:'Unknown'}[a.status]||a.status;
@@ -282,6 +347,132 @@ function outreachSec(s){const O=s.outreach;if(!O)return '';
 function stanceBlock(c){const st=c.stance;if(!st||!(st.items||[]).length)return '';st.items=st.items.slice().sort((a,b)=>Math.abs(b.points||0)-Math.abs(a.points||0));const T=D.tracker||{};
  return `<div class="sec"><h4>Local-government stance (tracker &amp; designations) · ${st.points>=0?'+':''}${st.points}</h4>${st.items.map(a=>{const o=a.original||{};return `<div class="issue"><div class="meta"><span class="chip ${a.points>0?'positive':a.points<0?'negative':'neutral'}">${a.points>0?'+':''}${a.points}</span>${esc(a.label)} · ${esc(jn(a.jurisdiction))} (${esc(a.role)})${a.approximate?' · approximate (matched by jurisdiction)':''}${a.distance_mi!=null?' · project pin '+fmt(a.distance_mi)+' mi away':''}</div><div><b>${esc(a.name)}</b>${a.status?' · '+esc(a.status):''}</div><div style="color:#ccc">${esc(a.summary)}</div>${a.reason?`<small>${esc(a.reason)}</small>`:''}<div class="src">Original: ${lnk(o.url,(o.outlet?o.outlet+': ':'')+(o.title||o.url))}${(a.also||[]).map(x=>' · Also: '+lnk(x.url,(x.outlet?x.outlet+': ':'')+(x.title||x.url))).join('')} · Secondary: ${lnk(a.tracker_url,'Data Center Tracker (More Than Just Parks)')}</div></div>`}).join('')}<small class="src">${esc((D.community_rules||{}).stance||'')}</small></div>`}
 
+// ---------------------------------------------------------------- Deal pipeline
+const STAGES=['New','Reviewing','Contacted','In Diligence','LOI Submitted','Under Contract','Closed','Passed','On Hold'];
+const STL={Contacted:'Contacted / Outreach'};const stL=x=>STL[x]||x;
+const STC={'New':'s-new','LOI Submitted':'s-hot','Under Contract':'s-hot','Closed':'s-won','Passed':'s-out','On Hold':'s-out'};
+const REASONS=['Price','Power','Gas','Zoning / sentiment','Size','Location','Broker','Timing','Other'];
+const PURSUE=['Reviewing','Contacted','In Diligence','LOI Submitted','Under Contract','Closed'],PASS=['Passed','On Hold'];
+const PC=D.pipeline||{};const BOTS=PC.bots||['Powered Land Sites','Self Storage Sites','Coding Agent','Any bot'];const USERS=PC.users||[];
+const PK='edks_pipe_v1';let PS={events:[],queue:[],deals:{},last:null,err:''};
+try{PS=Object.assign(PS,JSON.parse(localStorage.getItem(PK)||'{}'))}catch(e){}
+function psave(){try{localStorage.setItem(PK,JSON.stringify(PS))}catch(e){}}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,9);
+function me(){let m='';try{m=localStorage.getItem('edks_me')||''}catch(e){}return USERS.some(u=>u.email===m)?m:((USERS[0]||{}).email||'')}
+const uName=e=>{const u=USERS.find(x=>x.email===e);return u?u.name:(e||'you')};
+const objOf=(v,id)=>v==='land'?S.find(s=>s.id===id):SR.find(r=>r.id===id);
+let STG={};
+function idx(){STG={};const T={};PS.events.forEach(e=>{if(e.type!=='stage')return;const k=e.view+'|'+e.site_id;if(!T[k]||e.ts>T[k]){T[k]=e.ts;STG[k]=e.to_stage}});
+ Object.entries(PS.deals||{}).forEach(([k,d])=>{if(STAGES.includes(d.stage)&&(!T[k]||String(d.updated)>T[k]))STG[k]=d.stage})}
+const stageOf=(v,id)=>STG[v+'|'+id]||'New';const stI=(v,id)=>STAGES.indexOf(stageOf(v,id));
+function stB(v,id){const s=stageOf(v,id);return `<span class="badge stg ${STC[s]||''}" title="Pipeline stage">${esc(stL(s))}</span>`}
+const evOf=(v,id)=>PS.events.filter(e=>e.view===v&&e.site_id===id).sort((a,b)=>a.ts<b.ts?-1:1);
+function fuStatus(f){let st=f.status||'open',t='';PS.events.forEach(e=>{if(e.type==='followup_status'&&e.ref_id===f.event_id&&e.ts>t){t=e.ts;st=e.status}});return st}
+const when=t=>{const d=new Date(t);return isNaN(d)?esc(t):d.toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})};
+function addEv(e){e=Object.assign({event_id:uid(),ts:new Date().toISOString(),by:me()},e);PS.events.push(e);PS.queue.push(e.event_id);psave();pRefresh();sync();return e}
+function pRefresh(){idx();if(!$('viewLand').hidden)render();else sRender();const b=$('dealBox');if(b&&dlg.open)drawDeal(b.dataset.view,b.dataset.id);syncUI()}
+// ---- sync with the Apps Script endpoint (falls back to this browser until one is configured)
+let syncing=false;
+function syncUI(){const el=$('sync');if(!el)return;const n=PS.queue.length;el.classList.toggle('off',!PC.url||!!PS.err||n>0);
+ el.textContent=!PC.url?`Not synced · saved in this browser${n?' · '+n+' pending':''}`:PS.err?`Not synced · ${n} pending · tap to retry`:n?`Syncing · ${n} pending`:PS.last?'Synced · '+new Date(PS.last).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'Connecting'}
+function merge(j){const have=new Set(PS.events.map(e=>e.event_id));(j.events||[]).forEach(r=>{if(!r.event_id||have.has(r.event_id))return;have.add(r.event_id);
+  PS.events.push({event_id:String(r.event_id),ts:String(r.timestamp),site_id:String(r.site_id),view:r.view,name:r.name,type:r.type,from_stage:r.from_stage||'',to_stage:r.to_stage||'',reasons:String(r.reasons||'').split(', ').filter(Boolean),text:r.text||'',assignee:r.assignee||'',due:String(r.due||'').slice(0,10),status:r.status||'',ref_id:r.ref_id||'',by:r.by||''})});
+ PS.deals={};(j.deals||[]).forEach(d=>{PS.deals[d.view+'|'+d.site_id]={stage:d.stage,updated:String(d.updated||'')}})}
+async function sync(){syncUI();if(!PC.url||!PC.token||syncing)return;syncing=true;
+ try{const q=PS.events.filter(e=>PS.queue.includes(e.event_id));const G={};q.forEach(e=>{const b=e.by||me();(G[b]=G[b]||[]).push(e)});
+  for(const [by,list] of Object.entries(G)){const r=await fetch(PC.url,{method:'POST',body:JSON.stringify({token:PC.token,by,events:list})});const j=await r.json();if(!j.ok)throw new Error(j.error||'rejected');const ok=new Set(j.saved||[]);PS.queue=PS.queue.filter(id=>!ok.has(id))}
+  const r=await fetch(PC.url+(PC.url.includes('?')?'&':'?')+'token='+encodeURIComponent(PC.token));const j=await r.json();if(!j.ok)throw new Error(j.error||'rejected');
+  merge(j);PS.last=new Date().toISOString();PS.err=''}catch(e){PS.err=String(e&&e.message||e)}
+ syncing=false;psave();idx();if(!$('viewLand').hidden)render();else sRender();const b=$('dealBox');if(b&&dlg.open)drawDeal(b.dataset.view,b.dataset.id);syncUI()}
+// ---- required "Why?" on every stage change
+function askWhy(v,o,from,to){return new Promise((res,rej)=>{const w=$('why');const sel=new Set();
+ $('whyTitle').textContent=`Move to ${stL(to)}.`;$('whySub').textContent=`${o.name} · ${stL(from)} → ${stL(to)}`;
+ $('whyChips').innerHTML=REASONS.map(r=>`<button type="button" aria-pressed="false" data-r="${esc(r)}">${esc(r)}</button>`).join('');$('whyText').value='';
+ const chk=()=>{const t=$('whyText').value.trim();const ok=sel.size>0&&(!sel.has('Other')||t);$('whySave').disabled=!ok;$('whyHint').textContent=ok?'':sel.has('Other')?'Add a line of text for Other.':'Pick at least one reason.'};
+ $('whyChips').onclick=e=>{const b=e.target.closest('[data-r]');if(!b)return;const r=b.dataset.r;sel.has(r)?sel.delete(r):sel.add(r);b.setAttribute('aria-pressed',sel.has(r));chk()};
+ $('whyText').oninput=chk;chk();let done=false;
+ $('whySave').onclick=()=>{done=true;w.close();res({reasons:[...sel],text:$('whyText').value.trim()})};
+ w.onclose=()=>{if(!done)rej('cancel')};w.showModal()})}
+async function setStage(v,id,to){const o=objOf(v,id);const from=stageOf(v,id);if(!o||to===from){pRefresh();return}
+ try{const r=await askWhy(v,o,from,to);addEv({type:'stage',view:v,site_id:id,name:o.name,from_stage:from,to_stage:to,reasons:r.reasons,text:r.text})}catch(e){pRefresh()}}
+// ---- deal box inside the detail view: stage, follow-ups, notes, history
+function dealBox(v,o){return `<div class="deal" id="dealBox" data-view="${v}" data-id="${esc(o.id)}"></div>`}
+function drawDeal(v,id){const b=$('dealBox');if(!b)return;const ob=document.querySelector('#dBadges .stg');if(ob)ob.outerHTML=stB(v,id);const E=evOf(v,id),st=stageOf(v,id);
+ const fus=E.filter(e=>e.type==='followup'),notes=E.filter(e=>e.type==='note'),hist=E.filter(e=>e.type==='stage').slice().reverse();const open=fus.filter(f=>fuStatus(f)!=='done').length;
+ b.innerHTML=`<div class="dealtop"><span class="lbl mono">Stage</span>${stB(v,id)}<label class="lbl mono" for="dStage">Move to</label><select id="dStage" class="inp sel">${STAGES.map(s=>`<option value="${esc(s)}"${s===st?' selected':''}>${esc(stL(s))}</option>`).join('')}</select></div>
+ <div class="sec"><h4>Follow-ups for the bots · ${open} open</h4>${fus.map(f=>{const d=fuStatus(f)==='done';return `<label class="fu${d?' done':''}"><input type="checkbox" data-fu="${esc(f.event_id)}"${d?' checked':''}><span><span class="t">${esc(f.text)}</span><span class="meta mono">${d?'Done':'Open'} · → ${esc(f.assignee||'Any bot')}${f.due?' · due '+esc(f.due):''} · ${esc(uName(f.by))} · ${when(f.ts)}</span></span></label>`}).join('')||'<p class="desc muted">No follow-ups yet.</p>'}
+  <div class="addrow"><input id="fuText" class="inp" placeholder="Task for a bot, e.g. Pull the zoning code for this parcel"><input id="fuDue" class="inp" type="date" aria-label="Due date (optional)"><select id="fuWho" class="inp sel" aria-label="Assignee">${BOTS.map(x=>`<option>${esc(x)}</option>`).join('')}</select><button class="btn" data-act="fu">Add follow-up</button></div></div>
+ <div class="sec"><h4>Notes · ${notes.length}</h4><div class="thread">${notes.map(n=>`<div class="ev"><div class="meta mono">${esc(uName(n.by))} · ${when(n.ts)}</div><div>${esc(n.text).replace(/\n/g,'<br>')}</div></div>`).join('')||'<p class="desc muted">No notes yet.</p>'}</div>
+  <textarea id="noteText" class="inp" rows="3" placeholder="Leave a note"></textarea><div class="btns"><button class="btn" data-act="note">Add note</button></div></div>
+ <div class="sec"><h4>Stage history</h4><div class="thread">${hist.map(h=>`<div class="ev"><div class="meta mono">${when(h.ts)} · ${esc(uName(h.by))}</div><div>${esc(stL(h.from_stage||'New'))} → <b>${esc(stL(h.to_stage))}</b>${(h.reasons||[]).length?' · '+h.reasons.map(r=>`<span class="chip neutral">${esc(r)}</span>`).join(''):''}</div>${h.text?`<div class="muted">“${esc(h.text)}”</div>`:''}</div>`).join('')||'<p class="desc muted">No stage changes yet. Every site starts at New.</p>'}</div></div>`}
+dlg.addEventListener('change',e=>{const b=$('dealBox');if(!b)return;const v=b.dataset.view,id=b.dataset.id;
+ if(e.target.id==='dStage')setStage(v,id,e.target.value);
+ else if(e.target.dataset.fu)addEv({type:'followup_status',view:v,site_id:id,name:objOf(v,id).name,ref_id:e.target.dataset.fu,status:e.target.checked?'done':'open'})});
+dlg.addEventListener('click',e=>{const a=e.target.closest('[data-act]');const b=$('dealBox');if(!a||!b)return;const v=b.dataset.view,id=b.dataset.id,o=objOf(v,id);
+ if(a.dataset.act==='note'){const t=$('noteText').value.trim();if(!t){$('noteText').focus();return}addEv({type:'note',view:v,site_id:id,name:o.name,text:t})}
+ if(a.dataset.act==='fu'){const t=$('fuText').value.trim();if(!t){$('fuText').focus();return}addEv({type:'followup',view:v,site_id:id,name:o.name,text:t,due:$('fuDue').value,assignee:$('fuWho').value,status:'open'})}});
+// ---- detail helpers
+function col(h,open){if(!h)return '';const m=h.match(/^\s*(<div class="sec"[^>]*>)\s*<h4>([\s\S]*?)<\/h4>/);if(!m)return `<details class="col"${open?' open':''}><summary>More</summary><div>${h}</div></details>`;
+ return `<details class="col"${open?' open':''}><summary>${m[2]}</summary><div>${m[1]+h.slice(m[0].length)}</div></details>`}
+function facts(F){return '<div class="facts">'+F.map(([l,b,s])=>`<div class="fact"><span class="lbl mono">${l}</span><b>${b||'—'}</b>${s?'<small>'+s+'</small>':''}</div>`).join('')+'</div>'}
+function landFacts(s){const bl=bestLine(s,69),sb=sub(s,69),c=cm(s),a=an(s),O=s.outreach;const p=pr(s);
+ const ev=O&&O.stance?(O.stance.evidence||[]).filter(x=>x.url):[];const cites=ev.length?ev.map(x=>lnk(x.url,x.outlet||x.title||'source')):c?(c.laws.citations||[]).filter(x=>x.url).map(x=>lnk(x.url,x.title||'source')):[];
+ const sent=O&&O.stance?O.stance.label:c?(c.stance&&c.stance.badge)||LAWST[c.laws.status]:'';
+ return facts([['Score',s.overall+'<span class="lbl"> /100</span>',c?`Infra ${s.infra_score} · Community ${c.score}`:`Infra ${s.infra_score}`],
+  ['Power',bl?bl.kv+' kV · '+fmt(bl.mi)+' mi':'—',sb?'Substation '+(sb.kv?sb.kv+' kV · ':'')+fmt(sb.mi)+' mi':''],
+  ['Gas',s.gasline?fmt(s.gasline.mi)+' mi':'—',s.gasline?esc(s.gasline.operator)+' · '+esc(s.gasline.type):''],
+  ['$ / acre',p.per_acre!=null?ppaTxt(s):'—',p.total!=null?totTxt(s)+' total':(p.label?esc(p.label):'No price listed')],
+  ['Annexation',a.status==='annexed'?'Inside city limits':a.status==='unincorporated'?'Unincorporated':'Unknown',a.pending?'Pending annexation':a.status!=='annexed'&&a.nearest_base&&a.nearest_city_mi!=null?fmt(a.nearest_city_mi)+' mi to '+esc(a.nearest_base):esc(a.place_base||a.place||'')],
+  ['Sentiment',esc(sent||'—'),(c?'Laws '+c.laws.score+' · News '+c.news.score+' · EDC '+c.edc.score:'')+(cites.length?'<br>'+cites.slice(0,2).join(' · '):'')]])}
+function storFacts(r){const z=r.zoning||{},t=r.traffic||{},c=r.competition||{},d=r.demand||{};
+ return facts([['Score',r.score+'<span class="lbl"> /100</span>',PARTS.map(([k,l])=>l+' '+fmt(r.score_parts[k],0)).join(' · ')],
+  ['Zoning',esc(z.district||'?'),esc(z.status_txt||'')+(z.code_url?'<br>'+lnk(z.code_url,z.code||'code'):'')],
+  ['Price',r.price?money(r.price):'Unpriced',unitTxt(r)!=='—'?unitTxt(r):''],
+  ['Size',sizeTxt(r),r.fit_flag?esc(r.fit_flag):''],
+  ['Traffic',t.aadt?fmt(t.aadt,0)+' AADT':'No count',esc(t.road||'')],
+  ['Supply · demand',(c.count??'—')+' within 3 mi',(c.sf_per_capita!=null?c.sf_per_capita+' SF/person · ':'')+(d.pop3?fmt(d.pop3,0)+' people':'')]])}
+// ---- filters modal, stage filter, summary bar, board
+const STF={land:new Set(),storage:new Set()};try{const x=JSON.parse(localStorage.getItem('edks_stf')||'{}');['land','storage'].forEach(v=>(x[v]||[]).forEach(s=>STF[v].add(s)))}catch(e){}
+function stfSave(){try{localStorage.setItem('edks_stf',JSON.stringify({land:[...STF.land],storage:[...STF.storage]}))}catch(e){}}
+const stOK=(v,id)=>!STF[v].size||STF[v].has(stageOf(v,id));
+const isDef=el=>el.type==='checkbox'?el.checked===el.defaultChecked:el.tagName==='SELECT'?el.value===(([...el.options].find(o=>o.defaultSelected)||el.options[0]||{}).value):el.value===el.defaultValue;
+function fCount(v){const ids=v==='land'?F:SF;return ids.filter(k=>!/Sort$/.test(k)&&!isDef($(k))).length+(STF[v].size?1:0)}
+function fReset(v){(v==='land'?F:SF).forEach(k=>{const el=$(k);if(/Sort$/.test(k))return;if(el.type==='checkbox')el.checked=el.defaultChecked;else if(el.tagName==='SELECT')el.value=(([...el.options].find(o=>o.defaultSelected)||el.options[0]||{}).value);else el.value=el.defaultValue});STF[v].clear();stfSave();v==='land'?render():sRender()}
+function stChk(v){$(v==='land'?'fStageL':'fStageS').innerHTML=STAGES.map(s=>`<label class="chk"><input type="checkbox" data-stf="${v}" value="${esc(s)}"${STF[v].has(s)?' checked':''}><span class="lbl mono">${esc(stL(s))}</span></label>`).join('')}
+document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.dataset.stf)return;const v=t.dataset.stf;t.checked?STF[v].add(t.value):STF[v].delete(t.value);stfSave();v==='land'?render():sRender()});
+function stageBar(v){const all=v==='land'?S:SR;const n={};STAGES.forEach(s=>n[s]=0);all.forEach(o=>n[stageOf(v,o.id)]++);
+ $(v==='land'?'sbL':'sbS').innerHTML=STAGES.map(s=>`<button type="button" data-sbar="${v}" data-st="${esc(s)}" class="${STF[v].has(s)?'on':''}" aria-pressed="${STF[v].has(s)}"><b>${n[s]}</b><span>${esc(stL(s))}</span></button>`).join('')}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-sbar]');if(!b)return;const v=b.dataset.sbar,s=b.dataset.st;STF[v].has(s)?STF[v].delete(s):STF[v].add(s);stfSave();v==='land'?render():sRender()});
+const MODE={land:'list',storage:'list'};try{const m=JSON.parse(localStorage.getItem('edks_mode')||'{}');Object.assign(MODE,m)}catch(e){}
+function setMode(v,m){MODE[v]=m;try{localStorage.setItem('edks_mode',JSON.stringify(MODE))}catch(e){}v==='land'?render():sRender()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.v,b.dataset.mode)});
+function board(v,R){const cap=60;return STAGES.map(s=>{const L=R.filter(o=>stageOf(v,o.id)===s);return `<div class="bcol"><h5><span>${esc(stL(s))}</span><span>${L.length}</span></h5>${L.slice(0,cap).map(o=>`<div class="bcard" data-id="${esc(o.id)}"><div class="bh"><b>${esc(o.name)}</b><span class="mono acc">${v==='land'?o.overall:o.score}</span></div><div class="lbl">${v==='land'?esc(o.city)+' · '+fmt(o.acres,0)+' ac'+(pr(o).per_acre!=null?' · $'+fmt(pr(o).per_acre,0)+'/ac':''):esc(o.city_label)+' · '+sizeTxt(o)+(o.price?' · '+money(o.price):'')}</div><select class="inp sel" data-bstage="${v}" data-sid="${esc(o.id)}" aria-label="Move stage">${STAGES.map(x=>`<option value="${esc(x)}"${x===s?' selected':''}>${esc(stL(x))}</option>`).join('')}</select></div>`).join('')}${L.length>cap?`<p class="lbl mono" style="padding:0 10px">+${L.length-cap} more · narrow with Filters</p>`:''}</div>`}).join('')}
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.bstage)setStage(t.dataset.bstage,t.dataset.sid,t.value)});
+function afterRender(v,R){const L=v==='land';const bd=$(L?'bL':'bS');const isB=MODE[v]==='board';bd.classList.toggle('on',isB);bd.innerHTML=isB?board(v,R):'';
+ $(L?'listL':'listS').hidden=isB;document.querySelectorAll(`[data-mode][data-v="${v}"]`).forEach(b=>b.classList.toggle('on',b.dataset.mode===MODE[v]));
+ const n=fCount(v);$(L?'fbL':'fbS').innerHTML='Filters'+(n?' · <b>'+n+'</b>':'');stageBar(v);stChk(v);$(L?'lrLb':'lrSb').innerHTML=learn(v)}
+// ---- learning loop: what the stage decisions say about what gets pursued or passed
+const med=a=>{a=a.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y);if(!a.length)return null;const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};
+function learn(v){const ev=PS.events.filter(e=>e.view===v&&e.type==='stage');
+ if(!ev.length)return '<p class="desc">No stage decisions yet. Each time a deal moves and you say why, the reasons are tallied here and written to the Events tab of the Edifice Deal Pipeline sheet, so the sourcing bots can weight what you pursue and what you pass on.</p>';
+ const last={};ev.forEach(e=>{if(!last[e.site_id]||e.ts>last[e.site_id].ts)last[e.site_id]=e});
+ const G={pursue:[],pass:[]};Object.values(last).forEach(e=>{const k=PASS.includes(e.to_stage)?'pass':PURSUE.includes(e.to_stage)?'pursue':null;if(k)G[k].push(e)});
+ const tally=L=>{const t={};L.forEach(e=>(e.reasons||[]).forEach(r=>t[r]=(t[r]||0)+1));return Object.entries(t).sort((a,b)=>b[1]-a[1])};
+ const M=v==='land'?[['$/acre',o=>pr(o).per_acre,x=>'$'+fmt(x,0)],['Acres',o=>o.acres,x=>fmt(x,0)],['Best 69+ kV line',o=>(bestLine(o,69)||{}).mi,x=>fmt(x)+' mi'],['Gas pipeline',o=>(o.gasline||{}).mi,x=>fmt(x)+' mi'],['Community score',o=>(cm(o)||{}).score,x=>fmt(x,0)]]
+  :[['Price',o=>o.price,money],['$/acre',o=>o.price_per_acre,x=>'$'+fmt(x,0)],['Acres',o=>o.acres,x=>fmt(x,1)],['Traffic (AADT)',o=>(o.traffic||{}).aadt,x=>fmt(x,0)],['3-mi population',o=>(o.demand||{}).pop3,x=>fmt(x,0)]];
+ const O=L=>L.map(e=>objOf(v,e.site_id)).filter(Boolean);const mv=(L,f)=>med(O(L).map(f));
+ const lines=[];const RM=v==='land'?{Price:0,Size:1,Power:2,Gas:3,'Zoning / sentiment':4}:{Price:0,Size:2};
+tally(G.pass).forEach(([r,n])=>{if(RM[r]==null)return;const m=M[RM[r]];const x=mv(G.pass.filter(e=>(e.reasons||[]).includes(r)),m[1]);if(x!=null)lines.push(`Passed on ${r.toLowerCase()} ${n} time${n>1?'s':''}; median ${m[0].toLowerCase()} on those: ${m[2](x)}.`)});
+ const loc=G.pass.filter(e=>(e.reasons||[]).includes('Location')).map(e=>objOf(v,e.site_id)).filter(Boolean).map(o=>v==='land'?o.county+' Co':o.city_label);if(loc.length)lines.push('Passed on location in '+[...new Set(loc)].map(esc).join(', ')+'.');
+ const tl=L=>tally(L).map(([r,n])=>esc(r)+' '+n).join(' · ')||'none given';
+ const notes=Object.values(last).filter(e=>e.text).slice(-5).reverse();
+ return `<p class="desc">${G.pursue.length} pursued · ${G.pass.length} passed or on hold (latest decision per deal).</p>
+ ${kv([['Pursue reasons',tl(G.pursue)],['Pass reasons',tl(G.pass)]])}
+ <table class="lt"><thead><tr><th>Median</th><th>Pursued</th><th>Passed</th></tr></thead><tbody>${M.map(([l,f,F2])=>{const a=mv(G.pursue,f),b=mv(G.pass,f);return `<tr><td>${l}</td><td class="n">${a!=null?F2(a):'—'}</td><td class="n">${b!=null?F2(b):'—'}</td></tr>`}).join('')}</tbody></table>
+ ${lines.length?'<ul class="why">'+lines.map(x=>'<li>'+x+'</li>').join('')+'</ul>':''}
+ ${notes.length?'<div class="lbl mono" style="margin-top:10px">In your words</div>'+notes.map(e=>`<div class="ev"><div class="meta mono">${esc(stL(e.to_stage))} · ${esc(e.name||'')}</div>“${esc(e.text)}”</div>`).join(''):''}`}
+idx();
+
 $('methodBody').innerHTML='<div class="sec"><h4>Score (0–100)</h4>'+Object.entries(D.scoring).map(([k,v])=>`<div class="part"><b style="text-transform:capitalize">${k}</b> <span class="mono">max ${v.max}</span><br><small>${esc(v.rule)}</small></div>`).join('')+(D.community_rules?'</div><div class="sec"><h4>Overall &amp; community score</h4>'+Object.entries(D.community_rules).map(([k,v])=>`<div class="part"><b style="text-transform:capitalize">${k}</b><br><small>${esc(v)}</small></div>`).join('')+'<small>Annexation: listing pin tested against U.S. Census TIGERweb incorporated-place boundaries (Jan 1 vintage) plus listing text. Pins near a boundary or parcels straddling it should be confirmed with the county.</small>':'')+'<small><br>Distances are straight-line from the listing’s coordinates (EPSG:5070). Transmission: HIFLD; gas: EIA; substations: OpenStreetMap. Verify capacity with the utility before relying on any site.</small></div><div class="sec"><h4>Source status (this refresh)</h4>'+Object.entries(D.sources).map(([k,v])=>`<div class="part"><span class="${v.ok?'ok':'fail'} mono">${v.ok?'OK':'FAIL'}</span> ${esc(k)} — ${esc(v.detail)}${v.url?`<div class="src"><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.url)}</a></div>`:''}</div>`).join('')+'</div>'+'<div class="sec"><h4>Price &amp; $/acre</h4><small>Asking prices come only from the listing itself (LOIS sale-price and pricing-note fields, or an explicit "Sale/Asking Price" in the listing text). $/acre is the listed per-acre price (or listed $/sq ft × 43,560), otherwise total ÷ listed acres. "—" means no price is listed; "Negotiable", "Call for price", "Auction" or "Lease only" repeat what the listing says. Nothing is estimated. Flags mark values outside $1,000–$500,000/acre, a total that does not match the stated $/acre, a sale-price field that only makes sense as a per-acre figure, or acreage that looks like a data-entry error.</small></div>';
 render();
 // ---------------------------------------------------------------- Storage view
@@ -309,15 +500,15 @@ if(ST){[...new Set(SR.map(r=>r.city_label))].sort().forEach(c=>$('sCity').insert
 function sRender(){
  if(!ST){$('sCount').textContent='Storage data not available in this build.';return}
  const v={};SF.forEach(k=>{const el=$(k);v[k]=el.type==='checkbox'?el.checked:el.value});try{localStorage.setItem('edks_sf',JSON.stringify(v))}catch(e){}
- let R=SR.filter(r=>{if(v.sType&&r.kind!==v.sType)return false;if(v.sCity&&r.city_label!==v.sCity)return false;if(r.score<(+v.sScore||0))return false;
+ let R=SR.filter(r=>{if(!stOK('storage',r.id))return false;if(v.sType&&r.kind!==v.sType)return false;if(v.sCity&&r.city_label!==v.sCity)return false;if(r.score<(+v.sScore||0))return false;
   const z=(r.zoning||{}).status;if(v.sZone==='right'&&!['P','S','I'].includes(z))return false;if(v.sZone==='cond'&&!['P','S','I','C'].includes(z))return false;if(v.sZone==='X'&&z!=='X')return false;
   if(v.sFmt){const f=((r.formats||{})[v.sFmt]||[''])[0];if(!(fitOK(f)||fitM(f)))return false}
   if(v.sPrice!==''&&!(r.price&&r.price<=+v.sPrice))return false;if(v.sFit&&!(r.kind==='land'&&!r.fit_flag))return false;if(v.sNew&&!r.is_new)return false;return true});
- const k=v.sSort,BIG=1e15;R.sort((a,b)=>PARTS.some(p=>p[0]===k)?(b.score_parts[k]-a.score_parts[k]||b.score-a.score):k==='price'?((a.price??BIG)-(b.price??BIG)):k==='unit'?(((a.price_per_acre||a.price_per_sf)??BIG)-((b.price_per_acre||b.price_per_sf)??BIG)):k==='acres'?(b.acres||0)-(a.acres||0):k==='aadt'?((b.traffic.aadt||0)-(a.traffic.aadt||0)):k==='pop'?((b.demand.pop3||0)-(a.demand.pop3||0)):k==='new'?String(b.first_seen).localeCompare(String(a.first_seen)):b.score-a.score);
+ const k=v.sSort,BIG=1e15;R.sort((a,b)=>k==='stage'?(stI('storage',a.id)-stI('storage',b.id)||b.score-a.score):PARTS.some(p=>p[0]===k)?(b.score_parts[k]-a.score_parts[k]||b.score-a.score):k==='price'?((a.price??BIG)-(b.price??BIG)):k==='unit'?(((a.price_per_acre||a.price_per_sf)??BIG)-((b.price_per_acre||b.price_per_sf)??BIG)):k==='acres'?(b.acres||0)-(a.acres||0):k==='aadt'?((b.traffic.aadt||0)-(a.traffic.aadt||0)):k==='pop'?((b.demand.pop3||0)-(a.demand.pop3||0)):k==='new'?String(b.first_seen).localeCompare(String(a.first_seen)):b.score-a.score);
  document.querySelectorAll('th[data-sk]').forEach(th=>th.classList.toggle('s',th.dataset.sk===k));
- $('sCount').textContent=`${R.length} of ${SR.length} storage rows`;
- $('sCards').innerHTML=R.map(r=>{const t=r.traffic||{},c=r.competition||{},d=r.demand||{};return `<div class="card" data-id="${r.id}"><div class="score">${r.score}</div><div>${sBadges(r)}${zBadge(r)}</div><h3>${esc(r.name)}</h3><div class="lbl mono">${esc(r.address)} · ${esc(r.city_label)} · ${sizeTxt(r)}</div><div class="row mono"><span>$ ${r.price?money(r.price):'Unpriced'}${r.price&&unitTxt(r)!=='—'?' · '+unitTxt(r):''}</span></div><div class="row mono"><span>🚗 ${esc(t.road||'—')}${t.aadt?' · '+fmt(t.aadt,0)+' AADT':''}</span><span>▦ ${c.count??'—'} within 3 mi${c.sf_per_capita!=null?' · '+c.sf_per_capita+' SF/person':''}</span><span>👥 ${d.pop3?fmt(d.pop3/1000,0)+'k':'—'} · ${d.income?'$'+fmt(d.income/1000,0)+'k':'—'}</span></div><div style="margin-top:6px">${fitChips(r)}</div>${mini(r)}</div>`}).join('');
- document.querySelector('#sTbl tbody').innerHTML=R.map(r=>{const t=r.traffic||{},c=r.competition||{},d=r.demand||{},z=r.zoning||{},ct=topC(r);return `<tr data-id="${r.id}"><td class="n" style="color:var(--acc);font-size:16px">${r.score}${mini(r)}</td><td>${r.kind==='land'?'Land':'Facility'}</td><td>${sBadges(r).replace(/<span class="badge (cert|chg)">[^<]*<\/span>/,'')}<div>${esc(r.name)}</div><div class="lbl">${esc(r.address)} · ${esc(r.city_label)}</div></td><td class="n">${sizeTxt(r)}</td><td class="n">${r.price?money(r.price):'—'}</td><td class="n">${unitTxt(r)}</td><td><span class="badge ${ZCLS[z.status]||'unc'}">${esc(z.district||'?')}</span><div class="lbl">${esc(z.status_txt)}</div></td><td>${esc(t.road||'—')}<div class="lbl">${t.aadt?fmt(t.aadt,0)+' AADT ('+esc(t.aadt_year)+')':'no count'}</div></td><td class="n">${c.count??'—'} · ~${c.est_nrsf?fmt(c.est_nrsf/1000,0)+'k SF':'—'}<div class="lbl">${c.sf_per_capita!=null?c.sf_per_capita+' SF/person':''}${c.nearest?' · nearest '+fmt(c.nearest_mi,1)+' mi':''}</div></td><td class="n">${d.pop3?fmt(d.pop3,0):'—'}<div class="lbl">${d.income?'$'+fmt(d.income,0):''}${d.renter_pct!=null?' · '+d.renter_pct+'% rent':''}</div></td><td>${fitChips(r)}</td><td>${ct?esc(ct.name||ct.org)+'<div class="lbl">'+esc(ct.org&&ct.name?ct.org:'')+'</div>':'—'}</td></tr>`}).join('');
+ $('sCount').textContent=`${R.length} of ${SR.length} storage rows`;afterRender('storage',R);
+ $('sCards').innerHTML=R.map(r=>{const t=r.traffic||{},c=r.competition||{},d=r.demand||{};return `<div class="card" data-id="${r.id}"><div class="score">${r.score}</div><div>${stB('storage',r.id)}${sBadges(r)}${zBadge(r)}</div><h3>${esc(r.name)}</h3><div class="lbl mono">${esc(r.address)} · ${esc(r.city_label)} · ${sizeTxt(r)}</div><div class="row mono"><span>$ ${r.price?money(r.price):'Unpriced'}${r.price&&unitTxt(r)!=='—'?' · '+unitTxt(r):''}</span></div><div class="row mono"><span><span class="lbl">Road</span> ${esc(t.road||'—')}${t.aadt?' · '+fmt(t.aadt,0)+' AADT':''}</span><span><span class="lbl">Supply</span> ${c.count??'—'} within 3 mi${c.sf_per_capita!=null?' · '+c.sf_per_capita+' SF/person':''}</span><span><span class="lbl">Pop</span> ${d.pop3?fmt(d.pop3/1000,0)+'k':'—'} · ${d.income?'$'+fmt(d.income/1000,0)+'k':'—'}</span></div><div style="margin-top:6px">${fitChips(r)}</div>${mini(r)}</div>`}).join('');
+ document.querySelector('#sTbl tbody').innerHTML=R.map(r=>{const t=r.traffic||{},c=r.competition||{},d=r.demand||{},z=r.zoning||{},ct=topC(r);return `<tr data-id="${r.id}"><td>${stB('storage',r.id)}</td><td class="n" style="color:var(--acc);font-size:16px">${r.score}${mini(r)}</td><td>${r.kind==='land'?'Land':'Facility'}</td><td>${sBadges(r).replace(/<span class="badge (cert|chg)">[^<]*<\/span>/,'')}<div>${esc(r.name)}</div><div class="lbl">${esc(r.address)} · ${esc(r.city_label)}</div></td><td class="n">${sizeTxt(r)}</td><td class="n">${r.price?money(r.price):'—'}</td><td class="n">${unitTxt(r)}</td><td><span class="badge ${ZCLS[z.status]||'unc'}">${esc(z.district||'?')}</span><div class="lbl">${esc(z.status_txt)}</div></td><td>${esc(t.road||'—')}<div class="lbl">${t.aadt?fmt(t.aadt,0)+' AADT ('+esc(t.aadt_year)+')':'no count'}</div></td><td class="n">${c.count??'—'} · ~${c.est_nrsf?fmt(c.est_nrsf/1000,0)+'k SF':'—'}<div class="lbl">${c.sf_per_capita!=null?c.sf_per_capita+' SF/person':''}${c.nearest?' · nearest '+fmt(c.nearest_mi,1)+' mi':''}</div></td><td class="n">${d.pop3?fmt(d.pop3,0):'—'}<div class="lbl">${d.income?'$'+fmt(d.income,0):''}${d.renter_pct!=null?' · '+d.renter_pct+'% rent':''}</div></td><td>${fitChips(r)}</td><td>${ct?esc(ct.name||ct.org)+'<div class="lbl">'+esc(ct.org&&ct.name?ct.org:'')+'</div>':'—'}</td></tr>`}).join('');
  const by={};SR.forEach(r=>{by[r.city_label]=by[r.city_label]||{land:0,facility:0};by[r.city_label][r.kind]++});
  $('sStats').innerHTML=`<div class="stat"><b>${SR.filter(r=>r.kind==='land').length}</b><span class="lbl">land sites</span></div><div class="stat"><b>${SR.filter(r=>r.kind==='facility').length}</b><span class="lbl">facilities</span></div><div class="stat"><b>${SR.filter(r=>r.kind==='land'&&!r.fit_flag).length}</b><span class="lbl">5–10 ac</span></div><div class="stat"><b>${SR.filter(r=>r.score>=65).length}</b><span class="lbl">score 65+</span></div><div class="stat"><b style="color:var(--acc)">${SR.filter(r=>r.is_new).length}</b><span class="lbl">new this week</span></div>`;
 }
@@ -331,14 +522,18 @@ function openStorage(id){const r=SR.find(x=>x.id===id);if(!r)return;history.repl
  $('dBadges').innerHTML=sBadges(r)+zBadge(r);$('dTitle').textContent=r.name;$('dSub').textContent=`${r.address} · ${r.city_label} · ${sizeTxt(r)} · score ${r.score}/100`;
  const parts=PARTS.map(([k,lab])=>{const w=ST.weights[k],p=r.score_parts[k];return `<details class="pt"><summary><span>${lab}</span><span class="mono">${fmt(p)} / ${w}</span></summary><div class="bar"><i style="width:${Math.round(100*p/w)}%"></i></div>${kv(partWhy(r,k))}</details>`}).join('');
  const fmts=Object.keys(FMT).map(k=>{const f=(r.formats||{})[k]||['—',''];return [FMT[k],`<span class="fit ${fitOK(f[0])?'y':fitM(f[0])?'m':'n'}">${esc(f[0])}</span> <small>${esc(f[1])}</small>`]});
- const contacts=(r.contacts||[]).map(c=>`<div class="contact"><div class="role">${esc(c.role)}</div><div><b>${esc(c.name||c.org)}</b>${c.title?' · '+esc(c.title):''}</div>${c.name&&c.org?`<div class="lbl">${esc(c.org)}</div>`:''}<div class="btns">${c.phone?`<a class="btn" href="${tel(c.phone)}">☎ ${esc(c.phone)}</a>`:''}${c.email?`<a class="btn" href="mailto:${esc(c.email)}?subject=${encodeURIComponent(r.name+' ('+r.city_label+', KS)')}">✉ ${esc(c.email)}</a>`:''}</div>${c.note?`<div class="src">${esc(c.note)}</div>`:''}${c.source?`<div class="src">Source: <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.source)}</a></div>`:''}</div>`).join('');
- $('dBody').innerHTML=`<div class="sec"><div class="btns" style="margin:0 0 14px"><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener">Listing ↗</a><a class="btn" href="https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}" target="_blank" rel="noopener">Map ↗</a></div></div>
- <div class="sec"><h4>Score ${r.score}/100 — tap a part</h4>${r.score_cap?`<p class="desc" style="color:#c9a227">${esc(r.score_cap)}</p>`:''}${parts}</div>
- <div class="sec"><h4>Format fit</h4>${kv(fmts)}</div>
- <div class="sec"><h4>Property</h4>${kv([['Type',r.kind==='land'?'Development land':'Existing facility'+(r.subtype?' · '+esc(r.subtype):'')],['Address',esc([r.address,r.city_label,'KS',r.zip].filter(Boolean).join(', '))],['County',esc(r.county)],['Size',sizeTxt(r)],['Occupancy',esc(r.occupancy)],['Asking price',r.price?money(r.price):'Unpriced / call broker'],[r.kind==='land'?'$/acre':'$/SF',unitTxt(r)],['Size flag',esc(r.fit_flag||'')],['Listing updated',esc(r.updated)],['First seen',esc(r.first_seen)]])}${r.description?`<p class="desc">${esc(r.description)}</p>`:''}</div>
- ${emailSec('storage',r,(()=>{const o=[],sn=new Set();(r.contacts||[]).filter(c=>c.role==='Listing broker').forEach(c=>{const k=(c.email||c.name||'').toLowerCase();if(sn.has(k))return;sn.add(k);o.push({c,step:c.email?'Listing broker':'Listing broker — no email on file'+(c.phone?', call '+c.phone:'')+'; add the address in Gmail'})});['Listing contact (economic development)','EDC','City planning / zoning'].forEach(ro=>(r.contacts||[]).filter(c=>c.role===ro&&c.email&&!sn.has(c.email.toLowerCase())).forEach(c=>{sn.add(c.email.toLowerCase());o.push({c,step:c.role})}));return o})())}
- <div class="sec"><h4>Who to contact</h4>${contacts||'—'}</div>
- <div class="sec"><h4>Sources</h4><div class="src">${(r.sources||[]).map(x=>lnk(x.url,x.label)).join('<br>')}</div></div>`;
+ const contacts=(r.contacts||[]).map(c=>`<div class="contact"><div class="role">${esc(c.role)}</div><div><b>${esc(c.name||c.org)}</b>${c.title?' · '+esc(c.title):''}</div>${c.name&&c.org?`<div class="lbl">${esc(c.org)}</div>`:''}<div class="btns">${c.phone?`<a class="btn" href="${tel(c.phone)}">Call ${esc(c.phone)}</a>`:''}${c.email?`<a class="btn" href="mailto:${esc(c.email)}?subject=${encodeURIComponent(r.name+' ('+r.city_label+', KS)')}">Email ${esc(c.email)}</a>`:''}</div>${c.note?`<div class="src">${esc(c.note)}</div>`:''}${c.source?`<div class="src">Source: <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.source)}</a></div>`:''}</div>`).join('');
+ $('dBadges').innerHTML=stB('storage',r.id)+$('dBadges').innerHTML;
+ $('dBody').innerHTML=`${storFacts(r)}
+ <div class="btns" style="margin:0 0 16px"><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener">Listing ↗</a><a class="btn" href="https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}" target="_blank" rel="noopener">Map ↗</a></div>
+ ${dealBox('storage',r)}
+ <div class="cols">${col(emailSec('storage',r,(()=>{const o=[],sn=new Set();(r.contacts||[]).filter(c=>c.role==='Listing broker').forEach(c=>{const k=(c.email||c.name||'').toLowerCase();if(sn.has(k))return;sn.add(k);o.push({c,step:c.email?'Listing broker':'Listing broker — no email on file'+(c.phone?', call '+c.phone:'')+'; add the address in Gmail'})});['Listing contact (economic development)','EDC','City planning / zoning'].forEach(ro=>(r.contacts||[]).filter(c=>c.role===ro&&c.email&&!sn.has(c.email.toLowerCase())).forEach(c=>{sn.add(c.email.toLowerCase());o.push({c,step:c.role})}));return o})()))}
+ ${col(`<div class="sec"><h4>Score ${r.score}/100 · tap a part</h4>${r.score_cap?`<p class="desc" style="color:#c9a227">${esc(r.score_cap)}</p>`:''}${parts}</div>`)}
+ ${col(`<div class="sec"><h4>Format fit</h4>${kv(fmts)}</div>`)}
+ ${col(`<div class="sec"><h4>Property</h4>${kv([['Type',r.kind==='land'?'Development land':'Existing facility'+(r.subtype?' · '+esc(r.subtype):'')],['Address',esc([r.address,r.city_label,'KS',r.zip].filter(Boolean).join(', '))],['County',esc(r.county)],['Size',sizeTxt(r)],['Occupancy',esc(r.occupancy)],['Asking price',r.price?money(r.price):'Unpriced / call broker'],[r.kind==='land'?'$/acre':'$/SF',unitTxt(r)],['Size flag',esc(r.fit_flag||'')],['Listing updated',esc(r.updated)],['First seen',esc(r.first_seen)]])}${r.description?`<p class="desc">${esc(r.description)}</p>`:''}</div>`)}
+ ${col(`<div class="sec"><h4>Who to contact</h4>${contacts||'—'}</div>`)}
+ ${col(`<div class="sec"><h4>Sources</h4><div class="src">${(r.sources||[]).map(x=>lnk(x.url,x.label)).join('<br>')}</div></div>`)}</div>`;
+ drawDeal('storage',r.id);
  emInit();
  if(!dlg.open)dlg.showModal();dlg.scrollTop=0}
 if(ST){const cm_=ST.comps||[];$('sComps').innerHTML=cm_.length?`<details><summary>Single garage / storage condo units for sale (${cm_.length}) — format comps, not scored</summary><div class="db">${cm_.map(x=>`<div class="issue">${lnk(x.url,x.name)} · ${esc(x.city)} · ${x.sf?fmt(x.sf,0)+' SF':''} · ${x.price?money(x.price):'unpriced'}${x.price&&x.sf?' · $'+fmt(x.price/x.sf,0)+'/SF':''}</div>`).join('')}</div></details>`:'';
@@ -347,6 +542,8 @@ if(ST){const cm_=ST.comps||[];$('sComps').innerHTML=cm_.length?`<details><summar
 {let v0='land';try{v0=localStorage.getItem('edks_view')||'land'}catch(e){}const h=location.hash.slice(1);if(/^st-/.test(h))v0='storage';else if(h)v0='land';setView(v0);
  if(h){if(/^st-/.test(h))openStorage(h);else openSite(h)}}
 
+if(USERS.length){$('whoWrap').hidden=false;$('me').innerHTML=USERS.map(u=>`<option value="${esc(u.email)}">${esc(u.name||u.email)}</option>`).join('');$('me').value=me();$('me').onchange=e=>{try{localStorage.setItem('edks_me',e.target.value)}catch(x){}}}
+$('sync').onclick=()=>{PS.err='';sync()};syncUI();sync();setInterval(sync,60000);addEventListener('online',sync);document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync()});
 </script>
 </body>
 </html>
