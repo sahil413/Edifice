@@ -59,6 +59,10 @@ jobs:
           echo "queued: $n"
           if [ "$n" != "0" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; fi
 
+      # Bounded learned weights; writes only when stage/review inputs changed. Counts only.
+      - name: Recompute learned weights
+        run: python3 -W ignore pipeline/edks.py learn
+
       # Public GIS layers only; restore, never save (the daily refresh owns this cache).
       - name: Restore public geodata cache
         if: steps.q.outputs.go == '1'

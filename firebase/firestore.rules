@@ -64,6 +64,13 @@ service cloud.firestore {
     match /meta/{id} { allow read: if member(); allow write: if false; }
     match /private/{id} { allow read: if member(); allow write: if false; }
     match /learnings/{id} { allow read: if member(); allow write: if false; }
+    // Admin-only runtime config written by the pipeline (e.g. config/senders: the Gmail accounts allowed
+    // to send from the app). Addresses are never in this file; they are set at runtime.
+    match /config/{id} { allow read: if admin(); allow write: if false; }
+    function senders() {
+      let p = /databases/$(database)/documents/config/senders;
+      return exists(p) ? get(p).data.emails : [];
+    }
 
     // Users: members can read the roster (names on notes); only admins manage it.
     // An admin cannot remove or demote themselves, so there is always at least one admin.
@@ -139,6 +146,58 @@ service cloud.firestore {
       }
     }
     match /{path=**}/revents/{eventId} { allow read: if admin(); }
+
+    // Review queue (admin-only): every stage change lands here so the admin can be asked why and the
+    // answer feeds the learned weights. Editors may only file a pending item for their own stage change
+    // (write-only for them); admins and the pipeline read, ask and answer.
+    match /reviewQueue/{eventId} {
+      allow read, delete: if admin();
+      allow create: if editor() && reviewOk(eventId);
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'asked_at', 'answer', 'answered_at', 'answered_by', 'answer_event_id'])
+        && request.resource.data.status in ['pending', 'asked', 'answered']
+        && str(request.resource.data.get('answer', ''), 5000);
+    }
+    function reviewOk(eventId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['event_id', 'site_id', 'view', 'name', 'track', 'from_stage', 'to_stage', 'who', 'reasons', 'text', 'ts', 'status', 'restricted', 'created'])
+        && d.event_id == eventId && str(d.site_id, 80) && d.view in ['land', 'storage']
+        && d.track == (d.view == 'land' ? 'power' : 'storage')
+        && d.to_stage in stages() && d.who == email() && d.status == 'pending'
+        && d.reasons is list && d.reasons.size() <= 12 && str(d.get('text', ''), 5000) && str(d.get('name', ''), 200)
+        && d.ts is string && d.ts.size() <= 40 && d.created == request.time
+        && (d.get('restricted', false) == false || admin());
+    }
+
+    // Deal email log (admin-only). The sync job (service account) writes headers + a short excerpt, never
+    // bodies. An admin who is also an allowed sender (config/senders) may log an in-app send and bump the
+    // deal's last touch; the sending account must be one of the allowed senders too.
+    match /dealEmails/{siteId} {
+      allow read: if admin();
+      allow create, update: if admin()
+        && request.resource.data.keys().hasOnly(['site_id', 'last_touch', 'last_out', 'last_account', 'updated_by', 'summary', 'counts', 'updated', 'threads'])
+        && request.resource.data.diff(resource == null ? {} : resource.data).affectedKeys().hasOnly(['site_id', 'last_touch', 'last_out', 'last_account', 'updated_by'])
+        && request.resource.data.site_id == siteId && request.resource.data.updated_by == email()
+        && email() in senders() && request.resource.data.last_account in senders()
+        && request.resource.data.last_touch == request.time && request.resource.data.last_out == request.time;
+      allow delete: if admin();
+      match /items/{itemId} {
+        allow read, delete: if admin();
+        allow create: if admin() && emailItemOk(siteId, itemId);
+      }
+    }
+    function emailItemOk(siteId, itemId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['site_id', 'date', 'account', 'from', 'to', 'cc', 'subject', 'excerpt', 'link', 'thread_id', 'message_id', 'rfc_id', 'dir', 'source', 'by', 'created'])
+        && d.site_id == siteId && d.source == 'app' && d.dir == 'out' && d.by == email()
+        && email() in senders() && d.account in senders()
+        && itemId == d.thread_id + '_' + d.message_id
+        && str(d.thread_id, 40) && str(d.message_id, 40) && str(d.get('rfc_id', ''), 300)
+        && str(d.from, 200) && str(d.to, 1000) && str(d.get('cc', ''), 1000) && str(d.subject, 300)
+        && str(d.excerpt, 400) && str(d.link, 300)
+        && d.link == 'https://mail.google.com/mail/u/?authuser=' + d.account + '#all/' + d.thread_id
+        && d.date is string && d.date.size() <= 40 && d.created == request.time;
+    }
 
     // Lets the realtime collection-group listener read every deal's events.
     match /{path=**}/events/{eventId} { allow read: if member(); }

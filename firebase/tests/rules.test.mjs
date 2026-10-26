@@ -221,3 +221,71 @@ test('admins read and write restricted sites, deals and events', async () => {
   await assertSucceeds(updateDoc(doc(db, 'rdeals/m-secret1/revents/r1'), { status: 'done', done_by: ADMIN, done_at: serverTimestamp() }));
   await assertFails(setDoc(doc(db, 'rdeals/m-secret1/revents', 'bad'), ev(EDITOR, { event_id: 'bad', site_id: 'm-secret1' })));  // still authored as yourself
 });
+
+// ---- Phase 2: review queue, deal email log, learned weights
+const rq = (who, extra = {}) => Object.assign({ event_id: 'st1', site_id: 's1', view: 'land', name: 'Site', track: 'power', from_stage: 'New', to_stage: 'Reviewing',
+  who, reasons: ['Power'], text: 'why', ts: '2026-10-26T04:00:00.000Z', status: 'pending', created: serverTimestamp() }, extra);
+const em = (acct, extra = {}) => Object.assign({ site_id: 's1', date: '2026-10-26T04:00:00Z', account: acct, from: acct, to: 'x@example.com', subject: 'Hi', excerpt: 'Short.',
+  link: 'https://mail.google.com/mail/u/?authuser=' + acct + '#all/t1', thread_id: 't1', message_id: 'm1', dir: 'out', source: 'app', by: acct, created: serverTimestamp() }, extra);
+
+test('review queue: editors file their own pending item, cannot read it; admins read and answer', async () => {
+  await assertSucceeds(setDoc(doc(as(EDITOR), 'reviewQueue', 'st1'), rq(EDITOR)));
+  await assertFails(getDoc(doc(as(EDITOR), 'reviewQueue', 'st1')));
+  await assertFails(getDoc(doc(as(VIEWER), 'reviewQueue', 'st1')));
+  await assertFails(getDocs(collection(as(EDITOR), 'reviewQueue')));
+  await assertSucceeds(getDoc(doc(as(ADMIN), 'reviewQueue', 'st1')));
+  await assertSucceeds(updateDoc(doc(as(ADMIN), 'reviewQueue', 'st1'), { status: 'answered', answer: 'Price too high', answered_at: serverTimestamp() }));
+  await assertFails(updateDoc(doc(as(ADMIN), 'reviewQueue', 'st1'), { to_stage: 'Passed' }));
+  await assertFails(updateDoc(doc(as(EDITOR), 'reviewQueue', 'st1'), { status: 'answered' }));
+});
+
+test('review queue: shape is enforced', async () => {
+  const E = as(EDITOR);
+  await assertFails(setDoc(doc(as(VIEWER), 'reviewQueue', 'st1'), rq(VIEWER)));
+  await assertFails(setDoc(doc(E, 'reviewQueue', 'st1'), rq(ADMIN)));                       // impersonation
+  await assertFails(setDoc(doc(E, 'reviewQueue', 'st2'), rq(EDITOR)));                      // id != event_id
+  await assertFails(setDoc(doc(E, 'reviewQueue', 'st1'), rq(EDITOR, { status: 'answered' })));
+  await assertFails(setDoc(doc(E, 'reviewQueue', 'st1'), rq(EDITOR, { track: 'storage' })));
+  await assertFails(setDoc(doc(E, 'reviewQueue', 'st1'), rq(EDITOR, { answer: 'x' })));
+  await assertFails(setDoc(doc(E, 'reviewQueue', 'st1'), rq(EDITOR, { restricted: true })));
+  await assertSucceeds(setDoc(doc(as(ADMIN), 'reviewQueue', 'st1'), rq(ADMIN, { restricted: true })));
+});
+
+test('deal emails: admin only; app sends must be well-formed and from the signed-in admin', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'dealEmails', 's1'), { site_id: 's1', summary: 'quiet', counts: { in: 1, out: 2 } });
+    await setDoc(doc(c.firestore(), 'dealEmails/s1/items', 't0_m0'), { subject: 'x' });
+    await setDoc(doc(c.firestore(), 'config', 'senders'), { emails: [ADMIN, 'admin2@example.com'] });
+    await setDoc(doc(c.firestore(), 'users', 'admin3@example.com'), { role: 'admin', name: 'Other admin' });
+  });
+  await assertFails(getDoc(doc(as(EDITOR), 'config', 'senders')));
+  await assertSucceeds(getDoc(doc(as(ADMIN), 'config', 'senders')));
+  await assertFails(setDoc(doc(as(ADMIN), 'config', 'senders'), { emails: ['x@example.com'] }));
+  for (const u of [EDITOR, VIEWER]) {
+    await assertFails(getDoc(doc(as(u), 'dealEmails', 's1')));
+    await assertFails(getDoc(doc(as(u), 'dealEmails/s1/items', 't0_m0')));
+    await assertFails(getDocs(collection(as(u), 'dealEmails/s1/items')));
+    await assertFails(getDocs(collectionGroup(as(u), 'items')));
+    await assertFails(setDoc(doc(as(u), 'dealEmails/s1/items', 't1_m1'), em(u)));
+  }
+  const A = as(ADMIN);
+  await assertSucceeds(getDoc(doc(A, 'dealEmails', 's1')));
+  await assertSucceeds(getDocs(collection(A, 'dealEmails/s1/items')));
+  await assertSucceeds(setDoc(doc(A, 'dealEmails/s1/items', 't1_m1'), em(ADMIN)));
+  await assertFails(setDoc(doc(A, 'dealEmails/s1/items', 't1_m2'), em(ADMIN)));                                   // id mismatch
+  await assertFails(setDoc(doc(A, 'dealEmails/s1/items', 't1_m1'), em(ADMIN, { account: 'other@example.com', link: 'https://mail.google.com/mail/u/?authuser=other@example.com#all/t1' })));  // not an allowed sender
+  await assertSucceeds(setDoc(doc(A, 'dealEmails/s1/items', 't2_m2'), em('admin2@example.com', { thread_id: 't2', message_id: 'm2', by: ADMIN, link: 'https://mail.google.com/mail/u/?authuser=admin2@example.com#all/t2' })));  // the other allowed account
+  await assertFails(setDoc(doc(as('admin3@example.com'), 'dealEmails/s1/items', 't3_m3'), em('admin3@example.com', { thread_id: 't3', message_id: 'm3', link: 'https://mail.google.com/mail/u/?authuser=admin3@example.com#all/t3' })));  // admin but not a sender
+  await assertFails(setDoc(doc(A, 'dealEmails/s1/items', 't1_m1'), em(ADMIN, { body: 'full text' })));              // no bodies
+  await assertFails(setDoc(doc(A, 'dealEmails/s1/items', 't1_m1'), em(ADMIN, { link: 'https://evil.example.com' })));
+  await assertFails(setDoc(doc(A, 'dealEmails/s1/items', 't1_m1'), em(ADMIN, { source: 'sync' })));
+  await assertSucceeds(updateDoc(doc(A, 'dealEmails', 's1'), { last_touch: serverTimestamp(), last_out: serverTimestamp(), last_account: ADMIN, updated_by: ADMIN }));
+  await assertFails(updateDoc(doc(A, 'dealEmails', 's1'), { summary: 'rewritten', updated_by: ADMIN, last_touch: serverTimestamp(), last_out: serverTimestamp() }));
+});
+
+test('learned weights: members read, nobody writes from the client', async () => {
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'learnings', 'weights'), { version: 1, n: 0 }); });
+  await assertSucceeds(getDoc(doc(as(VIEWER), 'learnings', 'weights')));
+  for (const u of [VIEWER, EDITOR, ADMIN]) await assertFails(setDoc(doc(as(u), 'learnings', 'weights'), { version: 9 }));
+  await assertFails(getDoc(doc(as(STRANGER), 'learnings', 'weights')));
+});

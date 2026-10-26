@@ -158,6 +158,16 @@ jobs:
           FIREBASE_PROJECT: ${{ fromJSON(vars.FIREBASE_WEB_CONFIG || '{"projectId":""}').projectId }}
         run: python3 pipeline/edks.py verify --min-admins 3 --rules firebase/firestore.rules
 
+      - name: Unit tests (synthetic data only)
+        run: python3 -m unittest discover -s pipeline/tests
+
+      # Bounded learned weights (learnings/weights); prints counts only.
+      - name: Recompute learned weights
+        if: ${{ env.FIREBASE_WEB_CONFIG != '' }}
+        env:
+          FIREBASE_PROJECT: ${{ fromJSON(vars.FIREBASE_WEB_CONFIG || '{"projectId":""}').projectId }}
+        run: python3 -W ignore pipeline/edks.py learn
+
       # SITES_MODE=firebase: sites/index.html is the Google sign-in app (no site data; render.py fails the
       # build if any data, contact or email address appears in it) and sites/app/ redirects to /sites/.
       # Otherwise the StaticCrypt page stays live and the sign-in app is staged at sites/app/.

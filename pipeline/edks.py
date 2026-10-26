@@ -202,6 +202,22 @@ def cmd_push(a):
     existing = {d.id: (d.to_dict() or {}) for d in client.collection("sites").select(["view", "h", "manual"]).stream()}
     manual = {rid for rid, d in existing.items() if d.get("manual")}
     writes, keep, changed = [], set(), 0
+    # Rank with the learned weights: each site doc also carries its learned score (base score with the
+    # bounded per-factor multipliers from learnings/weights); the app re-applies newer weights live.
+    try:
+        import learnings
+        wd = client.collection("learnings").document("weights").get()
+        W = wd.to_dict() if wd.exists else {}
+    except Exception:
+        W = {}
+    def learned_of(view, r):
+        deltas = (W.get("power" if view == "land" else "storage") or {}).get("deltas") or {}
+        f = learnings.land_features(r) if view == "land" else learnings.storage_features(r)
+        base, ls = learnings.learned_score(f, {}), learnings.learned_score(f, deltas)
+        sc = r.get("overall", r.get("score"))
+        if ls is None or base is None or not isinstance(sc, (int, float)):
+            return sc
+        return round(sc + (ls - base), 1)
     for view, rows in views.items():
         for r in rows:
             rid = str(r["id"])
@@ -213,12 +229,13 @@ def cmd_push(a):
             if len(j) > MAX_DOC:
                 die(f"site {rid} is too large for one document ({len(j)} bytes)")
             keep.add(rid)
-            h = _h(j)
+            lv = learned_of(view, r)
+            h = _h(j + "|" + str(lv))
             if existing.get(rid, {}).get("h") == h:
                 continue
             changed += 1
             writes.append(("set", client.collection("sites").document(rid),
-                           {"view": view, "name": r.get("name") or "", "score": r.get("overall", r.get("score")), "h": h, "j": j}))
+                           {"view": view, "name": r.get("name") or "", "score": r.get("overall", r.get("score")), "learned": lv, "h": h, "j": j}))
     stale = [rid for rid, d in existing.items() if rid not in keep and d.get("view") in views and rid not in manual]
     for rid in stale:
         writes.append(("delete", client.collection("sites").document(rid), None))
@@ -315,6 +332,165 @@ def site_info(client, sid):
     d = s.to_dict()
     return d.get("view"), d.get("name", "")
 
+def locate(client, sid):
+    """(view, name, restricted) for a member or admin-only site."""
+    for restricted in (False, True):
+        s = client.collection(_cols(restricted)[0]).document(sid).get()
+        if s.exists:
+            d = s.to_dict() or {}
+            return d.get("view") or "land", d.get("name", ""), restricted
+    die(f"no site {sid}")
+
+# ------------------------------------------------------------------ review queue (admin-only)
+# Every stage change files reviewQueue/{event_id}: pending -> asked (the routine asked Sahil why) -> answered
+# (his answer is written back to the deal as a note event and feeds the learned weights).
+def track_of(view):
+    return "storage" if view == "storage" else "power"
+
+def queue_review(client, e, restricted=False):
+    ref = client.collection("reviewQueue").document(e["event_id"])
+    if ref.get().exists:
+        return False
+    ref.set({"event_id": e["event_id"], "site_id": e["site_id"], "view": e.get("view") or "land", "name": e.get("name", ""),
+             "track": track_of(e.get("view")), "from_stage": e.get("from_stage") or "", "to_stage": e.get("to_stage") or "",
+             "who": e.get("by") or "", "reasons": list(e.get("reasons") or []), "text": e.get("text") or "", "ts": e.get("ts") or now_iso(),
+             "status": "pending", "restricted": bool(restricted), "created": dt.datetime.now(dt.timezone.utc)})
+    return True
+
+def _relearn(client):
+    try:
+        import learnings
+        learnings.recompute(client, quiet=True)
+    except Exception as ex:  # never block a stage write on the model
+        print(f"[edks] WARNING: weights not refit ({type(ex).__name__})")
+
+def cmd_stage(a):
+    client = db()
+    view, name, restricted = locate(client, a.site_id)
+    _, dcol, ecol = _cols(restricted)
+    dref = client.collection(dcol).document(a.site_id); snap = dref.get()
+    frm = (snap.to_dict() or {}).get("stage", "New") if snap.exists else "New"
+    if a.to_stage not in STAGES:
+        die(f"stage must be one of: {', '.join(STAGES)}")
+    eid = a.event_id or (dt.datetime.now().strftime("%y%m%d") + uuid.uuid4().hex[:10])
+    if dref.collection(ecol).document(eid).get().exists:
+        print(f"[edks] {eid} already recorded"); return
+    e = {"event_id": eid, "site_id": a.site_id, "view": view, "name": name, "type": "stage", "ts": a.ts or now_iso(),
+         "from_stage": frm, "to_stage": a.to_stage, "reasons": [x.strip() for x in (a.reasons or "").split(",") if x.strip()],
+         "text": a.text or "", "by": a.by}
+    dref.set({"site_id": a.site_id, "view": view, "name": name, "stage": a.to_stage,
+              "updated": dt.datetime.now(dt.timezone.utc), "updated_by": a.by}, merge=True)
+    dref.collection(ecol).document(eid).set(e)
+    queue_review(client, e, restricted)
+    if not restricted:
+        _relearn(client)
+    print(f"[edks] {name}: {frm} -> {a.to_stage} ({eid}); review queued")
+
+def _iso(v):
+    return v.isoformat() if isinstance(v, dt.datetime) else v
+
+def email_context(client, sid, k=3):
+    items = []
+    for d in client.collection("dealEmails").document(sid).collection("items").stream():
+        x = d.to_dict() or {}
+        items.append({f: _iso(x.get(f)) for f in ("date", "account", "from", "to", "subject", "excerpt", "link", "dir")})
+    items.sort(key=lambda x: str(x.get("date") or ""), reverse=True)
+    summ = client.collection("dealEmails").document(sid).get()
+    return {"summary": (summ.to_dict() or {}).get("summary", "") if summ.exists else "", "recent": items[:k], "total": len(items)}
+
+def cmd_reviews(a):
+    client = db()
+    q = client.collection("reviewQueue")
+    rows = []
+    for d in q.stream():
+        x = {k: _iso(v) for k, v in (d.to_dict() or {}).items()}
+        x["id"] = d.id
+        if a.status != "all" and x.get("status") != a.status:
+            continue
+        if a.track and x.get("track") != a.track:
+            continue
+        rows.append(x)
+    rows.sort(key=lambda x: str(x.get("ts") or ""))
+    for x in rows:
+        x["email_context"] = email_context(client, x["site_id"])
+        x["question"] = (f"{x.get('name')}: moved {x.get('from_stage') or 'New'} -> {x.get('to_stage')} by {x.get('who')}"
+                         + (f" (reasons: {', '.join(x.get('reasons') or [])})" if x.get("reasons") else "")
+                         + ". What drove this decision, and what would change it?")
+    if a.json:
+        print(json.dumps(rows, indent=1, ensure_ascii=False, default=str)); return
+    if not rows:
+        print(f"No {a.status} reviews."); return
+    for x in rows:
+        print(f"{x['id']}	{x.get('status')}	{x.get('track')}	{x.get('ts')}	{x.get('site_id')}	{x.get('name')}	"
+              f"{x.get('from_stage') or 'New'} -> {x.get('to_stage')}	{x.get('who')}	{', '.join(x.get('reasons') or [])}	{x.get('text') or ''}")
+        c = x["email_context"]
+        if c["summary"]:
+            print(f"    email: {c['summary']}")
+        for m in c["recent"]:
+            print(f"    {str(m.get('date'))[:16]} [{m.get('account')}] {m.get('dir')} {m.get('subject')} {m.get('link')}")
+
+def _review(client, rid):
+    ref = client.collection("reviewQueue").document(rid); snap = ref.get()
+    if not snap.exists:
+        die(f"no review {rid}")
+    return ref, snap.to_dict() or {}
+
+def cmd_mark_asked(a):
+    client = db(); n = 0
+    for rid in a.review_ids:
+        ref, x = _review(client, rid)
+        if x.get("status") == "pending":
+            ref.update({"status": "asked", "asked_at": dt.datetime.now(dt.timezone.utc), "asked_via": a.via}); n += 1
+    print(f"[edks] {n} review(s) marked asked")
+
+def cmd_answer(a):
+    client = db()
+    ref, x = _review(client, a.review_id)
+    if x.get("status") == "answered" and not a.force:
+        print(f"[edks] {a.review_id} already answered (event {x.get('answer_event_id')}); use --force to add another"); return
+    restricted = bool(x.get("restricted"))
+    _, dcol, ecol = _cols(restricted)
+    eid = "a" + hashlib.sha1(f"{a.review_id}|{a.text}".encode()).hexdigest()[:15]
+    rs = [r.strip() for r in (a.reasons or "").split(",") if r.strip()]
+    e = {"event_id": eid, "site_id": x["site_id"], "view": x.get("view") or "land", "name": x.get("name", ""), "type": "note",
+         "ts": now_iso(), "by": a.by, "review_id": a.review_id, "reasons": rs,
+         "text": f"Why {x.get('from_stage') or 'New'} -> {x.get('to_stage')}: {a.text}"}
+    dref = client.collection(dcol).document(x["site_id"])
+    if not dref.get().exists:
+        ensure_deal(client, x["site_id"], e["view"], e["name"], a.by)
+    dref.collection(ecol).document(eid).set(e)
+    ref.update({"status": "answered", "answer": a.text, "answer_reasons": rs, "answered_at": dt.datetime.now(dt.timezone.utc),
+                "answered_by": a.by, "answer_event_id": eid})
+    if not restricted:
+        _relearn(client)
+    print(f"[edks] {a.review_id} answered -> note {eid} on {x.get('name')}")
+
+def cmd_backfill_reviews(a):
+    """File reviews for stage events since --since that have none yet (member and admin-only deals)."""
+    client = db(); n = 0
+    for restricted in (False, True):
+        _, dcol, ecol = _cols(restricted)
+        for d in client.collection_group(ecol).stream():
+            e = d.to_dict() or {}
+            if e.get("type") != "stage" or str(e.get("ts", "")) < a.since:
+                continue
+            e.setdefault("event_id", d.id); e.setdefault("site_id", d.reference.parent.parent.id)
+            n += queue_review(client, e, restricted)
+    print(f"[edks] backfill: {n} review(s) filed")
+
+def cmd_learn(a):
+    import learnings
+    learnings.recompute(db(), force=a.force)
+
+def cmd_senders(a):
+    """config/senders: the Gmail accounts allowed to send from the app (admin-only doc; addresses given at runtime)."""
+    client = db(); ref = client.collection("config").document("senders")
+    if a.emails:
+        em = [x.strip().lower() for x in a.emails.split(",") if x.strip()]
+        ref.set({"emails": em, "updated": dt.datetime.now(dt.timezone.utc)})
+    snap = ref.get()
+    print(f"[edks] senders: {len((snap.to_dict() or {}).get('emails') or []) if snap.exists else 0} account(s) configured")
+
 def ensure_deal(client, sid, view, name, by):
     ref = client.collection("deals").document(sid)
     snap = ref.get()
@@ -331,6 +507,8 @@ def add_event(client, sid, typ, text, by, **kw):
     e = {"event_id": eid, "site_id": sid, "view": view, "name": name, "type": typ, "ts": now_iso(), "text": text, "by": by}
     e.update({k: v for k, v in kw.items() if v is not None})
     ref.collection("events").document(eid).set(e)
+    if typ == "stage":
+        queue_review(client, e)
     return e
 
 def cmd_followups(a):
@@ -403,6 +581,8 @@ def cmd_import(a):
             e["reasons"] = [x.strip() for x in e["reasons"].split(",") if x.strip()]
         ref = ensure_deal(client, sid, e.get("view") or "land", e.get("name") or "", e.get("by") or "import")
         ref.collection("events").document(eid).set(e)
+        if typ == "stage":
+            queue_review(client, e)
         if typ == "stage" and e.get("to_stage") in STAGES and e["ts"] > last_stage.get(sid, ("",))[0]:
             last_stage[sid] = (e["ts"], e["to_stage"])
         have.add(eid); n += 1
@@ -413,6 +593,8 @@ def cmd_import(a):
             d.reference.update({"status": r.get("status") or "open"})
     for sid, (_, st) in last_stage.items():
         client.collection("deals").document(sid).set({"stage": st}, merge=True)
+    if last_stage:
+        _relearn(client)
     print(f"[edks] imported {n} events ({len(flips)} follow-up status changes, {len(last_stage)} deal stages)")
 
 # ------------------------------------------------------------------ manual sites
@@ -454,6 +636,8 @@ def cmd_add_manual(a):
         if e["type"] == "followup": ev.setdefault("status", "open")
         if not dref.collection(ecol).document(eid).get().exists:
             dref.collection(ecol).document(eid).set(ev); n += 1
+            if ev["type"] == "stage":
+                queue_review(client, ev, restricted)
     print(f"[edks] manual site {sid} ({'admin-only' if restricted else 'members'}): stage {sp.get('stage') or 'New'}, {n} new events")
 
 def cmd_delete_manual(a):
@@ -578,11 +762,26 @@ def main():
     for k in ("--cache-dir", "--geo-cache-dir", "--contacts", "--curated", "--local-review", "--state", "--tracker-review", "--tracker-state"):
         p.add_argument(k)
     p = sp.add_parser("verify"); p.add_argument("--min-admins", type=int, default=1); p.add_argument("--rules")
+    p = sp.add_parser("stage", help="move a deal and file a review"); p.add_argument("site_id"); p.add_argument("to_stage")
+    p.add_argument("--reasons", default=""); p.add_argument("--text", default=""); p.add_argument("--by", default="bot:cli")
+    p.add_argument("--ts"); p.add_argument("--event-id")
+    p = sp.add_parser("reviews", help="list the review queue with matched email context")
+    p.add_argument("--status", default="pending", choices=["pending", "asked", "answered", "all"]); p.add_argument("--track", choices=["power", "storage"])
+    p.add_argument("--json", action="store_true")
+    p = sp.add_parser("mark-asked"); p.add_argument("review_ids", nargs="+"); p.add_argument("--via", default="bot")
+    p = sp.add_parser("answer", help="write Sahil's answer back as a note and mark the review answered")
+    p.add_argument("review_id"); p.add_argument("text"); p.add_argument("--reasons", default=""); p.add_argument("--by", default="bot:cli")
+    p.add_argument("--force", action="store_true")
+    p = sp.add_parser("backfill-reviews"); p.add_argument("--since", default="2026-10-01")
+    p = sp.add_parser("learn", help="refit learnings/weights"); p.add_argument("--force", action="store_true")
+    p = sp.add_parser("senders"); p.add_argument("--emails", help="comma-separated; omit to just count")
     a = ap.parse_args()
     {"push": cmd_push, "users": cmd_users, "followups": cmd_followups, "done": lambda a: cmd_status(a, "done"),
      "reopen": lambda a: cmd_status(a, "open"), "note": cmd_note, "followup": cmd_followup, "dump": cmd_dump,
      "push-learnings": cmd_push_learnings, "import": cmd_import, "verify": cmd_verify,
-     "add-manual": cmd_add_manual, "delete-manual": cmd_delete_manual, "enrich": cmd_enrich}[a.cmd](a)
+     "add-manual": cmd_add_manual, "delete-manual": cmd_delete_manual, "enrich": cmd_enrich,
+     "stage": cmd_stage, "reviews": cmd_reviews, "mark-asked": cmd_mark_asked, "answer": cmd_answer,
+     "backfill-reviews": cmd_backfill_reviews, "learn": cmd_learn, "senders": cmd_senders}[a.cmd](a)
 
 if __name__ == "__main__":
     main()
