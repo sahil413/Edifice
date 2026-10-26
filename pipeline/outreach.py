@@ -48,6 +48,7 @@ def risk_type(text):
 
 MITIGATION = {
     "moratorium": "Suggested: don't file while it is in force; ask staff for the end date and whether data-center rules are being drafted, and offer input on the draft.",
+    "moratorium_proposed": "Suggested: this ban/moratorium is proposed or sought, not adopted; ask staff whether it is on an agenda and what standards it would set, and hold any filing until it is decided.",
     "ballot": "Suggested: expect a public vote; brief officials early with a one-page fact sheet (taxes paid, water and noise commitments) and hold any filing until the vote is settled.",
     "petition": "Suggested: expect a petition drive; meet neighbors before filing and publish the project's tax and water numbers up front.",
     "water": "Suggested: lead with a closed-loop or air-cooled design and state a daily water figure up front.",
@@ -122,9 +123,10 @@ def plan(s, D, ibj, titems_by_jur, prec):
         order.append({"step": "County commission / planning", "contact": {"org": jname(j) + " Commission", "source": cz["url"] if cz else None},
                       "note": "no named contact on file" + (" — planning & zoning page linked" if cz else "")})
     prov = ((s.get("electric") or [{}])[0] or {}).get("provider") or ""
-    if "evergy" in prov.lower() or not prov:
+    legacy = re.search(r"\bkcp\s*&?\s*l\b|\bwestar\b|kansas city power", prov, re.I)  # predecessors merged into Evergy (2018)
+    if "evergy" in prov.lower() or not prov or legacy:
         u = evergy_contact(s)
-        if u: order.append({"step": "Utility (Evergy economic development)", "contact": u})
+        if u: order.append({"step": "Utility (Evergy economic development)", "contact": u, **({"note": f"listing names “{prov}”, now part of Evergy"} if legacy else {})})
     else:
         u = pick_contact(s, ["Electric provider (as listed)"])
         real = re.search(r"evergy|bpu|board of public utilities|electric|energy|power|co-?op|cooperative|light|municipal|utilit|rec\b", prov, re.I)
@@ -168,6 +170,7 @@ def plan(s, D, ibj, titems_by_jur, prec):
             if i["reg_status"] == "lifted": continue
             t = risk_type(i["title"] + " " + (i.get("summary") or ""))
             if i["reg_status"] in ("rules", "proposed_rules"): t = "rules" if t in ("opposition", "moratorium") else t
+            elif t == "moratorium" and i["reg_status"] != "active": t = "moratorium_proposed"
             risks.append({"type": t, "text": f"{jname(j)}: {i['title']} ({i.get('date') or 'n.d.'})", **cite(i["url"], i["title"], i.get("outlet", "")), "mitigation": MITIGATION.get(t, MITIGATION["opposition"])})
     if lstat in ("cup", "sup"):
         cc = (c["laws"].get("citations") or [{}])[0]
