@@ -30,7 +30,10 @@ site data and the draft engine are read from Firestore after an allowed account 
 - Deploy rules: `firebase deploy --only firestore:rules --config firebase/firebase.json --project <id>`.
 
 ## Bot CLI (`pipeline/edks.py`)
-Keyless: Application Default Credentials (`gcloud auth application-default login` on the box, WIF in CI).
+Rules deploy (keyless, exact file): `python3 pipeline/deploy_rules.py` (Firebase Rules REST API, gcloud login).
+
+Keyless: Application Default Credentials if configured, otherwise the gcloud CLI login (`gcloud auth login`;
+tokens from `gcloud auth print-access-token`), in CI Workload Identity Federation. (`gcloud auth application-default login` on the box, WIF in CI).
 Set `EDIFICE_IMPERSONATE_SA` to act as the pipeline service account. A legacy key (`EDIFICE_FIREBASE_SA`)
 still works if one ever exists. Credentials are never printed.
 

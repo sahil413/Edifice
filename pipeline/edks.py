@@ -4,6 +4,7 @@
 Auth is keyless by default (credentials are never printed, logged or written by this script):
   Application Default Credentials  box: `gcloud auth application-default login`; CI: Workload Identity
                                    Federation via google-github-actions/auth (GOOGLE_APPLICATION_CREDENTIALS)
+  (auth, keyless: ADC -> gcloud CLI login via `gcloud auth print-access-token`; WIF in CI)
   EDIFICE_IMPERSONATE_SA           act as this service account (needs roles/iam.serviceAccountTokenCreator)
   FIREBASE_PROJECT                 project id (default dms-edvc)
   EDIFICE_FIREBASE_SA              optional legacy key: a path or the key JSON (also ~/.config/edifice/firebase-sa.json)
@@ -58,6 +59,10 @@ def _adc():
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
     scopes = ["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/datastore"]
+    adc_file = os.path.expanduser("~/.config/gcloud/application_default_credentials.json")
+    if not (os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.path.exists(adc_file)
+            or os.environ.get("EDIFICE_ADC_METADATA")):
+        return None  # no ADC configured: skip the slow metadata-server probe and fall back to the gcloud login
     try:
         cred, _ = google.auth.default(scopes=scopes, quota_project_id=project_id())
     except DefaultCredentialsError:
@@ -69,12 +74,45 @@ def _adc():
                                                     target_scopes=scopes, lifetime=3600)
     return cred
 
+def _gcloud_bin():
+    import shutil
+    b = shutil.which("gcloud")
+    alt = os.path.expanduser("~/google-cloud-sdk/bin/gcloud")
+    return b or (alt if os.path.exists(alt) else None)
+
+def _gcloud():
+    """Keyless fallback: the gcloud CLI user login (`gcloud auth login`). Tokens come from
+    `gcloud auth print-access-token`, impersonating EDIFICE_IMPERSONATE_SA when set; they live only in memory."""
+    gb = _gcloud_bin()
+    if not gb or os.environ.get("EDIFICE_NO_GCLOUD"):
+        return None
+    import datetime, subprocess
+    from google.auth import credentials as gac
+
+    class GcloudCredentials(gac.Credentials):
+        def refresh(self, request):
+            cmd = [gb, "auth", "print-access-token", "--quiet"]
+            sa = os.environ.get("EDIFICE_IMPERSONATE_SA")
+            if sa:
+                cmd.append("--impersonate-service-account=" + sa)
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            if r.returncode != 0 or not r.stdout.strip():
+                die("gcloud could not issue an access token (run `gcloud auth login`; token not shown)")
+            self.token = r.stdout.strip()
+            self.expiry = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(minutes=45)
+
+    r = subprocess.run([gb, "auth", "list", "--filter=status:ACTIVE", "--format=value(account)"],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        return None
+    return GcloudCredentials()
+
 def configured():
     """True when Firestore is reachable without prompting: emulator, explicit key, or ADC."""
     if os.environ.get("FIRESTORE_EMULATOR_HOST") or _key_source():
         return True
     try:
-        return _adc() is not None
+        return _adc() is not None or _gcloud() is not None
     except Exception:
         return False
 
@@ -94,9 +132,9 @@ def db():
             cred = service_account.Credentials.from_service_account_info(
                 info, scopes=["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/datastore"])
         else:
-            cred = _adc()
+            cred = _adc() or _gcloud()
             if cred is None:
-                die("no credentials: run `gcloud auth application-default login` (box) or use Workload Identity (CI)")
+                die("no credentials: run `gcloud auth login` (box) or use Workload Identity (CI)")
     except SystemExit:
         raise
     except Exception:
