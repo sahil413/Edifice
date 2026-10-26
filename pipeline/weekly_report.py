@@ -29,6 +29,15 @@ def key_contacts(s, n=3):
         seen.add(k); out.append(c)
     return out[:n]
 
+def persona(role, c):
+    """Mirror of the page's default sender for a contact type."""
+    r = (role or "").lower(); o = f"{c.get('org') or ''} {c.get('name') or ''}".lower()
+    if re.search(r"broker|owner/|seller|realt", r) and "economic development)" not in r and not re.search(
+            r"\b(city|county|town) of\b|city hall|economic development|development (corp|authority|council)|chamber|commission|port authority", o):
+        return "personal (sahil@rattan.org, written from the listing)"
+    return "Edifice (sahil@edifice.vc, introduction template)"
+
+
 def ov(s): return s.get("overall", s.get("score", 0))
 def comm(s): return (s.get("community") or {})
 def ann_text(s):
@@ -186,6 +195,12 @@ def main():
                 who = c.get("name") or c.get("org") or "—"
                 seq.append(f"{st['step']}: {who}" + (f" <{c['email']}>" if c.get("email") else "") + (f" ({st['note']})" if st.get("note") else ""))
             md.append("   - Contact order: " + " → ".join(seq))
+            if o["contacts"]:
+                c0 = o["contacts"][0]; md.append(f"   - Persona for first email: {persona(c0['step'], c0.get('contact') or {})}")
+            gov = {c["email"].lower() for c in s.get("contacts", []) if c.get("email") and not persona(c.get("role"), c).startswith("personal")}
+            br = [c for c in s.get("contacts", []) if c.get("email") and c["email"].lower() not in gov and persona(c.get("role"), c).startswith("personal")]
+            if br:
+                md.append(f"   - Listing broker {br[0].get('name') or br[0].get('org')}: send from sahil@rattan.org (personal, listing-specific draft)")
             if o["angles"]:
                 a0 = o["angles"][0]; md.append(f"   - Lead angle: {a0['text']}" + (f" ([source]({a0['url']}))" if a0.get("url") else ""))
             for r in o["risks"][:3]:

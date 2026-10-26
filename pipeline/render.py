@@ -12,9 +12,29 @@ CERT_LIST_URL = "https://www.kansascommerce.gov/program/business-incentives-and-
 # Fixed public salt so "remember me" survives daily rebuilds (salt is not secret; it ships in the output).
 SALT = "4d7ebf500422fa19f7b747f4920395aa"
 
-def build_html(data):
+EMAIL_STUB = "function emailSec(){return ''}function emInit(){}function landContacts(){return []}"
+
+def load_email_engine(path, password_env):
+    """The draft-email engine (templates, personas, lint lists) is private: it lives encrypted in
+    pipeline/email_engine.enc and is only ever inlined into the page before StaticCrypt runs.
+    Plaintext source stays in private/ (gitignored). Falls back to a stub that hides the panel."""
+    if path and os.path.exists(path):
+        return open(path, encoding="utf-8").read()
+    enc = os.path.join(HERE, "email_engine.enc")
+    if os.path.exists(enc) and os.environ.get(password_env):
+        r = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-iter", "200000", "-salt",
+                            "-pass", f"env:{password_env}", "-in", enc], capture_output=True)
+        if r.returncode == 0:
+            return r.stdout.decode("utf-8")
+        print("[render] WARNING: could not decrypt email_engine.enc; draft-email panel disabled")
+    else:
+        print("[render] WARNING: no email engine available; draft-email panel disabled")
+    return EMAIL_STUB
+
+def build_html(data, engine=EMAIL_STUB):
     data = dict(data, cert_list_url=CERT_LIST_URL)
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
+    tpl = tpl.replace("/*__EMAIL__*/", engine.replace("</script", "<\\/script"))
     js = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\!--")
     return tpl.replace("/*__DATA__*/", js)
 
@@ -56,6 +76,7 @@ def verify(enc_path, data):
         if len(it.get("summary") or "") >= 30: probes.add(it["summary"][:60])
     if data.get("tracker"): probes |= {"moved_to_stance", "included_because"}
     if data.get("storage"): probes |= {"sf_per_capita", "zoning_rules", "own_facility"}
+    probes |= {"function genDraft", "edks_prefs_", "Kansas-based investor"}
     probes |= {"__DATA__", "score_parts", "lines_by_class", "community_rules", "annexation_counts", "infra_score"}
     leaks = [p for p in probes if p in html]
     if leaks:
@@ -72,6 +93,7 @@ def main():
     ap.add_argument("--plain-out", default=None, help="also keep plaintext HTML here (private/gitignored only)")
     ap.add_argument("--no-encrypt", action="store_true")
     ap.add_argument("--storage", default=None, help="plaintext storage.json (merged into the page as D.storage)")
+    ap.add_argument("--email-engine", default=None, help="plaintext email engine JS (private/ only); default: decrypt pipeline/email_engine.enc")
     a = ap.parse_args()
     data = json.load(open(a.data, encoding="utf-8"))
     if a.storage and os.path.exists(a.storage):
@@ -79,7 +101,7 @@ def main():
         print(f"[render] merged storage view: {len(data['storage'].get('rows', []))} rows")
     elif a.storage:
         print(f"[render] WARNING: --storage {a.storage} not found; storage view will be empty")
-    html = build_html(data)
+    html = build_html(data, load_email_engine(a.email_engine, a.password_env))
     tmp = tempfile.mkdtemp(prefix="edks_")
     try:
         plain = os.path.join(tmp, "index.html")

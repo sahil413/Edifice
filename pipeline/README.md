@@ -76,12 +76,23 @@ evidence, contact order (EDC → city manager → county commission → utility)
 suggested mitigations, and a next step. The weekly report lists the top 5 plans.
 
 ### Draft outbound email
-Each site's detail view has **Draft in Gmail** (opens Gmail web compose in a new tab:
+Each site's detail view has an editable draft (subject + body), **Draft in Gmail** (opens Gmail web compose in a new tab:
 `https://mail.google.com/mail/?authuser=<sender>&view=cm&fs=1&to=&cc=&su=&body=`, all values URL-encoded),
-**Copy email** (subject + body to the clipboard), and a secondary mail-app (mailto) link. Sender is
-selectable (sahil@edifice.vc default, sahil@rattan.org) and remembered in localStorage. Nothing is ever sent.
-Powered Land drafts go to the plan's first contact; storage drafts go to the listing broker and ask about
-availability, price and terms. Body text uses only the cited data on the page.
+**Copy email**, and a mail-app (mailto) link. All three use the text exactly as edited. Nothing is ever sent.
+
+**Templates are private.** The draft engine (sender personas, template wording, per-listing draft builder, lint
+rules) lives encrypted in `pipeline/email_engine.enc` (same `crypt.py` scheme as the other `.enc` files). `render.py`
+decrypts it in memory and inlines it into the page *before* StaticCrypt runs, so it only ever ships inside the
+encrypted `sites/index.html`; the plaintext source stays in `private/email_engine.js` (gitignored). To change it:
+edit `private/email_engine.js`, preview with `render.py --email-engine private/email_engine.js --no-encrypt
+--plain-out private/preview.html`, then `python3 pipeline/crypt.py enc private/email_engine.js pipeline/email_engine.enc`.
+Without the engine (or the password) the page renders with the draft panel hidden.
+
+**Live feedback.** Editable subject/body, length and tone toggles, a question checklist and a free-text feedback box
+run a rule-based rewrite in the browser ("shorter", "more formal", "ask about rail", "don't ask about taxes",
+"subject: …", "add: <sentence>", "reset"). Phrases it doesn't understand are listed back rather than guessed.
+Manual edits are kept: paragraphs are aligned with the last draft (LCS), and edited, added and deleted paragraphs
+survive regeneration. Preferences are saved per sender in the browser's localStorage; "forget" clears them.
 
 ## Price per acre (`pricing.py`)
 
