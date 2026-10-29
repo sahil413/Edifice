@@ -16,7 +16,7 @@ service cloud.firestore {
     function admin() { return member() && role() == 'admin'; }
     function str(v, n) { return v is string && v.size() <= n; }
     function stages() {
-      return ['New', 'Reviewing', 'Contacted', 'In Diligence', 'LOI Submitted',
+      return ['New', 'Under Consideration', 'Reviewing', 'Contacted', 'In Diligence', 'LOI Submitted',
               'Under Contract', 'Closed', 'Passed', 'On Hold'];
     }
 

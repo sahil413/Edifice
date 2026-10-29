@@ -148,7 +148,7 @@ def deal_index(client):
             freq[e] += 1
     for sid, x in idx.items():
         x["generic"] = {e for e in x["emails"] if freq[e] >= GENERIC_SITES}
-        x["active"] = deals[sid]["stage"] != "New"
+        x["active"] = deals[sid]["stage"] not in ("New", "Under Consideration")
     # A New-stage record's local contacts (city utility, EDC) usually write about the active deal in the same city.
     for x in idx.values():
         x["city_contacts"] = set()

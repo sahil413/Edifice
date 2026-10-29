@@ -31,7 +31,7 @@ Manual sites (ids m-...; admin-only ones live in rsites/rdeals/revents):
 import argparse, csv, re, datetime as dt, hashlib, json, os, subprocess, sys, uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-STAGES = ["New", "Reviewing", "Contacted", "In Diligence", "LOI Submitted", "Under Contract", "Closed", "Passed", "On Hold"]
+STAGES = ["New", "Under Consideration", "Reviewing", "Contacted", "In Diligence", "LOI Submitted", "Under Contract", "Closed", "Passed", "On Hold"]
 ROLES = ("admin", "editor", "viewer")
 MAX_DOC = 900_000  # Firestore caps a document at 1 MiB
 EV_FIELDS = ("event_id", "site_id", "view", "name", "type", "ts", "from_stage", "to_stage", "reasons", "text",
@@ -478,6 +478,29 @@ def cmd_backfill_reviews(a):
             n += queue_review(client, e, restricted)
     print(f"[edks] backfill: {n} review(s) filed")
 
+def cmd_migrate_under_consideration(a):
+    """One-time relabel: every existing site still in New (explicit or implicit) -> Under Consideration.
+    Writes only the deal doc (updated_by system:migration): no stage event, no review item, ignored by learn.
+    Sites added afterwards have no deal doc and default to New."""
+    client = db(); n = {}
+    for restricted in (False, True):
+        scol, dcol, _ = _cols(restricted)
+        for s in client.collection(scol).select(["view", "name"]).stream():
+            d = s.to_dict() or {}; view = d.get("view")
+            if view not in ("land", "storage") or s.id.startswith("__"):
+                continue
+            dref = client.collection(dcol).document(s.id); snap = dref.get()
+            cur = (snap.to_dict() or {}).get("stage", "New") if snap.exists else "New"
+            k = (view, "admin-only" if restricted else "members")
+            if cur != "New":
+                n[k + ("kept",)] = n.get(k + ("kept",), 0) + 1; continue
+            n[k + ("moved",)] = n.get(k + ("moved",), 0) + 1
+            if not a.dry_run:
+                dref.set({"site_id": s.id, "view": view, "name": d.get("name") or "", "stage": "Under Consideration",
+                          "updated": dt.datetime.now(dt.timezone.utc), "updated_by": "system:migration"}, merge=True)
+    for k in sorted(n):
+        print(f"[edks] migrate{' (dry run)' if a.dry_run else ''}: {' '.join(k)} {n[k]}")
+
 def cmd_learn(a):
     import learnings
     learnings.recompute(db(), force=a.force)
@@ -836,6 +859,7 @@ def main():
     p.add_argument("review_id"); p.add_argument("text"); p.add_argument("--reasons", default=""); p.add_argument("--by", default="bot:cli")
     p.add_argument("--force", action="store_true")
     p = sp.add_parser("backfill-reviews"); p.add_argument("--since", default="2026-10-01")
+    p = sp.add_parser("migrate-under-consideration"); p.add_argument("--dry-run", action="store_true")
     p = sp.add_parser("learn", help="refit learnings/weights"); p.add_argument("--force", action="store_true")
     p = sp.add_parser("senders"); p.add_argument("--emails", help="comma-separated; omit to just count"); p.add_argument("--gmail-client-id", help="OAuth Web client ID for send-from-app (not a secret)")
     a = ap.parse_args()
@@ -844,7 +868,7 @@ def main():
      "push-learnings": cmd_push_learnings, "import": cmd_import, "verify": cmd_verify,
      "add-manual": cmd_add_manual, "delete-manual": cmd_delete_manual, "enrich": cmd_enrich,
      "stage": cmd_stage, "reviews": cmd_reviews, "mark-asked": cmd_mark_asked, "answer": cmd_answer,
-     "backfill-reviews": cmd_backfill_reviews, "learn": cmd_learn, "senders": cmd_senders}[a.cmd](a)
+     "backfill-reviews": cmd_backfill_reviews, "learn": cmd_learn, "senders": cmd_senders, "migrate-under-consideration": cmd_migrate_under_consideration}[a.cmd](a)
 
 if __name__ == "__main__":
     main()

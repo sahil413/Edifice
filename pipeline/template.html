@@ -108,7 +108,7 @@ details.pt{border:1px solid var(--line);padding:10px 12px;margin:0 0 8px}details
 .stagebar button b{display:block;font:400 22px 'JetBrains Mono',monospace;line-height:1.1}
 .stagebar button span{font:500 10px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
 .stagebar button:hover{background:#151515}.stagebar button.on{background:#1b1b1b;outline:1px solid var(--acc);outline-offset:-1px}.stagebar button.on span{color:var(--acc)}
-.badge.stg{border-color:#fff;color:#fff}.badge.stg.s-new{border-style:dashed;border-color:#666;color:var(--mut)}.badge.stg.s-hot{border-color:var(--acc);color:var(--acc)}.badge.stg.s-won{background:var(--acc);border-color:var(--acc);color:#000}.badge.stg.s-out{border-color:#555;color:#888}
+.badge.stg{border-color:#fff;color:#fff}.badge.stg.s-new{border-style:dashed;border-color:#666;color:var(--mut)}.badge.stg.s-uc{border-color:#777;color:#bbb}.badge.stg.s-hot{border-color:var(--acc);color:var(--acc)}.badge.stg.s-won{background:var(--acc);border-color:var(--acc);color:#000}.badge.stg.s-out{border-color:#555;color:#888}
 .tblwrap{overflow-x:auto;max-width:100%}
 .board{display:none;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);overflow-x:auto;border-top:1px solid var(--line);border-left:1px solid var(--line)}
 .board.on{display:grid}
@@ -449,9 +449,9 @@ function stanceBlock(c){const st=c.stance;if(!st||!(st.items||[]).length)return 
  return `<div class="sec"><h4>Local-government stance (tracker &amp; designations) · ${st.points>=0?'+':''}${st.points}</h4>${st.items.map(a=>{const o=a.original||{};return `<div class="issue"><div class="meta"><span class="chip ${a.points>0?'positive':a.points<0?'negative':'neutral'}">${a.points>0?'+':''}${a.points}</span>${esc(a.label)} · ${esc(jn(a.jurisdiction))} (${esc(a.role)})${a.approximate?' · approximate (matched by jurisdiction)':''}${a.distance_mi!=null?' · project pin '+fmt(a.distance_mi)+' mi away':''}</div><div><b>${esc(a.name)}</b>${a.status?' · '+esc(a.status):''}</div><div style="color:#ccc">${esc(a.summary)}</div>${a.reason?`<small>${esc(a.reason)}</small>`:''}<div class="src">Original: ${lnk(o.url,(o.outlet?o.outlet+': ':'')+(o.title||o.url))}${(a.also||[]).map(x=>' · Also: '+lnk(x.url,(x.outlet?x.outlet+': ':'')+(x.title||x.url))).join('')} · Secondary: ${lnk(a.tracker_url,'Data Center Tracker (More Than Just Parks)')}</div></div>`}).join('')}<small class="src">${esc((D.community_rules||{}).stance||'')}</small></div>`}
 
 // ---------------------------------------------------------------- Deal pipeline
-const STAGES=['New','Reviewing','Contacted','In Diligence','LOI Submitted','Under Contract','Closed','Passed','On Hold'];
+const STAGES=['New','Under Consideration','Reviewing','Contacted','In Diligence','LOI Submitted','Under Contract','Closed','Passed','On Hold'];
 const STL={Contacted:'Contacted / Outreach'};const stL=x=>STL[x]||x;
-const STC={'New':'s-new','LOI Submitted':'s-hot','Under Contract':'s-hot','Closed':'s-won','Passed':'s-out','On Hold':'s-out'};
+const STC={'New':'s-new','Under Consideration':'s-uc','LOI Submitted':'s-hot','Under Contract':'s-hot','Closed':'s-won','Passed':'s-out','On Hold':'s-out'};
 const REASONS=['Price','Power','Gas','Zoning / sentiment','Size','Location','Broker','Timing','Other'];
 const PURSUE=['Reviewing','Contacted','In Diligence','LOI Submitted','Under Contract','Closed'],PASS=['Passed','On Hold'];
 const BK=window.EDKS_BK||null;const RO=()=>!!BK&&!BK.canEdit();
