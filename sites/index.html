@@ -28,6 +28,10 @@ h1 strong{font-weight:500}
 .sub{color:var(--mut);font-size:15px;max-width:760px;line-height:1.5}
 .stats{display:flex;gap:22px;flex-wrap:wrap;margin:18px 0}
 .stat b{display:block;font-size:26px;font-weight:400}
+.stats button.stat{background:none;border:1px solid transparent;border-radius:0;color:inherit;font:inherit;text-align:left;padding:4px 8px;margin:-5px -9px;cursor:pointer}
+.stats button.stat:hover{border-color:var(--line)}
+.stats button.stat:focus-visible{outline:1px solid var(--acc);outline-offset:2px}
+.stats button.stat.on{border-color:var(--acc)}.stats button.stat.on .lbl{color:var(--acc)}
 .filters{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}@media(min-width:640px){.filters{grid-template-columns:repeat(3,1fr)}}
 .filters label{display:flex;flex-direction:column;gap:4px}
 .filters input,.filters select{background:#000;color:#fff;border:1px solid var(--line);padding:9px 8px;font:14px 'JetBrains Mono',monospace;border-radius:0;width:100%;-webkit-appearance:none}
@@ -216,6 +220,7 @@ details.lr{margin-top:16px}
  <label><span class="lbl mono">Max $/acre</span><input id="fPpa" type="number" inputmode="numeric" value="" placeholder="any" min="0" step="1000"></label>
  <label><span class="lbl mono">Sort</span><select id="fSort"><option value="learned">Learned</option><option value="score">Overall</option><option value="infra">Infrastructure</option><option value="comm">Community</option><option value="laws">Laws &amp; zoning</option><option value="news">Local news</option><option value="edc">EDC</option><option value="acres">Acres</option><option value="ppa">$/acre (low→high)</option><option value="price">Total price (low→high)</option><option value="tx">Line distance</option><option value="gas">Gas distance</option><option value="stage">Stage</option><option value="name">Name</option><option value="new">Newest</option></select></label>
  <label class="chk"><input id="fCert" type="checkbox"><span class="lbl mono">Certified only</span></label>
+ <label><span class="lbl mono">Recency</span><select id="fQ"><option value="">Any</option><option value="new">New this week</option><option value="chg">Changed</option></select></label>
  <label class="chk"><input id="fNew" type="checkbox"><span class="lbl mono">New / changed</span></label>
 </div>
 </div><div class="sec"><h4>Stage</h4><div class="stchk" id="fStageL"></div></div><div class="btns"><button class="btn" type="button" onclick="fReset('land')">Reset filters</button><button class="btn" type="button" onclick="this.closest('dialog').close()">Show results</button></div></div></dialog>
@@ -257,9 +262,8 @@ function topContact(s){const c=(s.contacts||[]).find(c=>/Local|Listing/.test(c.r
 const gen=new Date(D.generated_at);
 $('refreshed').textContent='Last refreshed '+gen.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
 const nNew=S.filter(s=>s.is_new).length,nChg=S.filter(s=>s.is_changed&&!s.is_new).length;
-$('stats').innerHTML=`<div class="stat"><b>${S.length}</b><span class="lbl">sites</span></div><div class="stat"><b>${S.filter(s=>s.certified).length}</b><span class="lbl">certified</span></div><div class="stat"><b>${S.filter(s=>s.overall>=70).length}</b><span class="lbl">overall 70+</span></div><div class="stat"><b>${S.filter(s=>an(s).status==='annexed').length}</b><span class="lbl">in city limits</span></div><div class="stat"><b style="color:var(--acc)">${nNew}</b><span class="lbl">new this week</span></div><div class="stat"><b>${nChg}</b><span class="lbl">changed</span></div>`;
 [...new Set(S.map(s=>s.county).filter(Boolean))].sort().forEach(c=>$('fCounty').insertAdjacentHTML('beforeend',`<option>${esc(c)}</option>`));
-const F=['fAcres','fCounty','fKv','fKvMi','fGas','fScore','fComm','fAnnex','fPpa','fSort','fCert','fNew'];
+const F=['fAcres','fCounty','fKv','fKvMi','fGas','fScore','fComm','fAnnex','fPpa','fSort','fCert','fNew','fQ'];
 const pr=s=>s.price||{};
 const money=n=>n==null?'—':n>=1e6?'$'+(n/1e6).toLocaleString(undefined,{maximumFractionDigits:2})+'M':'$'+Math.round(n).toLocaleString();
 function ppaTxt(s){const p=pr(s);if(p.per_acre==null)return p.label?esc(p.label):'—';const r=p.per_acre_high&&p.per_acre_low!=null&&p.per_acre_high!==p.per_acre_low?'$'+fmt(p.per_acre_low,0)+'–'+fmt(p.per_acre_high,0):'$'+fmt(p.per_acre,0);return r+'/ac'+(p.flagged?' <span class="badge warn">check</span>':'')}
@@ -275,14 +279,21 @@ function subLine(s){const c=cm(s);return c?`Infra <b>${s.infra_score}</b> · Com
 function regFlag(s){const c=cm(s);if(!c)return '';const st=c.laws.status;const sb=(c.stance||{}).badge?'<span class="badge ann">'+esc(c.stance.badge)+'</span>':'';return sb+(st==='prohibited'?'<span class="badge reg">DC ban/moratorium</span>':st==='proposed'?'<span class="badge warn">DC rules proposed</span>':st==='cup'?'<span class="badge pend">CUP/SUP needed</span>':st==='by_right'?'<span class="badge ann">DC allowed by right</span>':'')}
 function badges(s){let b=manBadges(s);if(s.is_new)b+='<span class="badge">New</span>';else if(s.is_changed)b+='<span class="badge chg">Updated</span>';if(s.certified)b+='<span class="badge cert">Certified</span>';if(s.acres_suspect)b+='<span class="badge warn">Check acres</span>';if(pr(s).flagged&&!s.acres_suspect)b+='<span class="badge warn">Check price</span>';return b}
 function manBadges(s){let b='';if(s.restricted)b+='<span class="badge reg">Admin only</span>';if(s.manual)b+=s.pending?'<span class="badge pend">Enriching…</span>':'<span class="badge">Manual</span>';if(s.sentiment==='negative')b+='<span class="badge reg">Risk reported</span>';return b}
+function landOK(s,v,minKv){if(!stOK('land',s.id))return false;if((s.acres||0)<(+v.fAcres||0))return false;if(v.fCounty&&s.county!==v.fCounty)return false;if((s.overall||0)<(+v.fScore||0))return false;if(cm(s)&&cm(s).score<(+v.fComm||0))return false;if(v.fAnnex){const a=an(s);if(v.fAnnex==='pending'?!(a.pending||a.annex_possible||a.listing_says_annexed):a.status!==v.fAnnex)return false}
+  if(v.fPpa!==''&&!(pr(s).per_acre!=null&&pr(s).per_acre<=+v.fPpa))return false;
+  if(v.fCert&&!s.certified)return false;if(v.fNew&&!(s.is_new||s.is_changed))return false;if(v.fQ==='new'&&!s.is_new)return false;if(v.fQ==='chg'&&!(s.is_changed&&!s.is_new))return false;
+  const bl=bestLine(s,minKv);if(v.fKvMi!==''&&(!bl||bl.mi>+v.fKvMi))return false;if(minKv>69&&!bl)return false;
+  if(v.fGas!==''&&(!s.gasline||s.gasline.mi>+v.fGas))return false;return true}
+const QS=[['sites','sites',null,null],['cert','certified',s=>!!s.certified,{fCert:false}],['s70','overall 70+',s=>(s.overall||0)>=70,{fScore:'0'}],['city','in city limits',s=>an(s).status==='annexed',{fAnnex:''}],['new','new this week',s=>!!s.is_new,{fQ:''}],['chg','changed',s=>!!(s.is_changed&&!s.is_new),{fQ:''}]];
+function qOn(k,v){return k==='cert'?!!v.fCert:k==='s70'?(+v.fScore||0)>=70:k==='city'?v.fAnnex==='annexed':k==='new'?v.fQ==='new':k==='chg'?v.fQ==='chg':false}
+function landStats(v,minKv,R){const any=QS.some(q=>qOn(q[0],v));$('stats').innerHTML=QS.map(([k,l,fn,clr])=>{const n=fn?S.filter(s=>fn(s)&&landOK(s,Object.assign({},v,clr),minKv)).length:R.length;const on=qOn(k,v);return `<button type="button" class="stat${on?' on':''}" data-q="${k}" aria-pressed="${on}" title="${k==='sites'?'Clear all filters':(on?'Remove filter: ':'Filter: ')+l}"><b${k==='new'?' style="color:var(--acc)"':''}>${n}</b><span class="lbl">${l}</span></button>`}).join('')}
+$('stats').addEventListener('click',e=>{const b=e.target.closest('[data-q]');if(!b)return;const k=b.dataset.q,v={fCert:$('fCert').checked,fScore:$('fScore').value,fAnnex:$('fAnnex').value,fQ:$('fQ').value},on=qOn(k,v);
+ if(k==='sites'){fReset('land');return}if(k==='cert')$('fCert').checked=!on;else if(k==='s70')$('fScore').value=on?'0':'70';else if(k==='city')$('fAnnex').value=on?'':'annexed';else $('fQ').value=on?'':k;render();const nb=document.querySelector('#stats [data-q="'+k+'"]');if(nb)nb.focus()});
 function render(){
  const v={};F.forEach(k=>{const el=$(k);v[k]=el.type==='checkbox'?el.checked:el.value});localStorage.setItem('edks_f',JSON.stringify(v));
  const minKv=+v.fKv||69;
- let R=S.filter(s=>{if(!stOK('land',s.id))return false;if((s.acres||0)<(+v.fAcres||0))return false;if(v.fCounty&&s.county!==v.fCounty)return false;if((s.overall||0)<(+v.fScore||0))return false;if(cm(s)&&cm(s).score<(+v.fComm||0))return false;if(v.fAnnex){const a=an(s);if(v.fAnnex==='pending'?!(a.pending||a.annex_possible||a.listing_says_annexed):a.status!==v.fAnnex)return false}
-  if(v.fPpa!==''&&!(pr(s).per_acre!=null&&pr(s).per_acre<=+v.fPpa))return false;
-  if(v.fCert&&!s.certified)return false;if(v.fNew&&!(s.is_new||s.is_changed))return false;
-  const bl=bestLine(s,minKv);if(v.fKvMi!==''&&(!bl||bl.mi>+v.fKvMi))return false;if(minKv>69&&!bl)return false;
-  if(v.fGas!==''&&(!s.gasline||s.gasline.mi>+v.fGas))return false;return true});
+ let R=S.filter(s=>landOK(s,v,minKv));
+ landStats(v,minKv,R);
  const k=v.fSort;const BIG=1e15;R.sort((a,b)=>k==='learned'?(LS('land',b)-LS('land',a)||b.overall-a.overall):k==='stage'?(stI('land',a.id)-stI('land',b.id)||b.overall-a.overall):k==='ppa'?((pr(a).per_acre??BIG)-(pr(b).per_acre??BIG)||b.overall-a.overall):k==='price'?((pr(a).total??BIG)-(pr(b).total??BIG)||b.overall-a.overall):k==='acres'?(b.acres||0)-(a.acres||0):k==='tx'?((bestLine(a,minKv)||{mi:1e9}).mi-(bestLine(b,minKv)||{mi:1e9}).mi):k==='gas'?((a.gasline||{mi:1e9}).mi-(b.gasline||{mi:1e9}).mi):k==='name'?a.name.localeCompare(b.name):k==='new'?String(b.first_seen>b.lois_created?b.lois_created:b.first_seen).localeCompare(String(a.lois_created)):k==='infra'?b.infra_score-a.infra_score:k==='comm'?((cm(b)||{score:0}).score-(cm(a)||{score:0}).score):(k==='laws'||k==='news'||k==='edc')?((cm(b)?cm(b)[k].score:0)-(cm(a)?cm(a)[k].score:0)):b.overall-a.overall);
  document.querySelectorAll('th[data-k]').forEach(th=>th.classList.toggle('s',th.dataset.k===k));
  $('count').textContent=`${R.length} of ${S.length} sites`;afterRender('land',R);
