@@ -53,9 +53,17 @@ def load_pipeline_config(password_env):
     print(f"[render] pipeline sync: {'configured' if cfg.get('url') and cfg.get('token') else 'not configured (browser-only)'}; users {len(cfg.get('users') or [])}")
     return cfg
 
+def _mapbox(tpl):
+    """Inject the public Mapbox token (pk., URL-restricted) from MAPBOX_PUBLIC_TOKEN; without it the map uses MapLibre."""
+    tok = os.environ.get("MAPBOX_PUBLIC_TOKEN", "").strip()
+    if not re.fullmatch(r"pk\.[A-Za-z0-9._-]+", tok):
+        tok = ""
+    return tpl.replace("/*__MAPBOX__*/", tok)
+
+
 def build_html(data, engine=EMAIL_STUB):
     data = dict(data, cert_list_url=CERT_LIST_URL)
-    tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
+    tpl = _mapbox(open(os.path.join(HERE, "template.html"), encoding="utf-8").read())
     tpl = tpl.replace("/*__EMAIL__*/", engine.replace("</script", "<\\/script"))
     js = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\!--")
     return tpl.replace("/*__DATA__*/", js)
@@ -79,7 +87,7 @@ def firebase_config(env_name, emulator):
 def build_firebase_html(cfg, emulator=False):
     """The sign-in shell: the app code (already public in this repo as template.html) with no data and no
     draft engine. Both are read from Firestore after an allowed Google account signs in."""
-    tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
+    tpl = _mapbox(open(os.path.join(HERE, "template.html"), encoding="utf-8").read())
     head = '<script id="data" type="application/json">/*__DATA__*/</script>\n<script>\n'
     if tpl.count(head) != 1:
         sys.exit("[render] template layout changed: cannot find the data/app script pair")
