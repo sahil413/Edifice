@@ -129,6 +129,12 @@ details.pt{border:1px solid var(--line);padding:10px 12px;margin:0 0 8px}details
 .tblwrap{overflow-x:auto;max-width:100%}
 .board{display:none;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);overflow-x:auto;border-top:1px solid var(--line);border-left:1px solid var(--line)}
 .board.on{display:grid}
+.mapbox{display:none;grid-template-columns:240px 1fr;border:1px solid var(--line);height:70vh;min-height:460px;margin-top:8px}.mapbox.on{display:grid}@media(max-width:760px){.mapbox.on{grid-template-columns:1fr;grid-template-rows:auto 60vh;height:auto}}
+.mapside{border-right:1px solid var(--line);overflow:auto;padding:12px;font-size:12px}.msec{margin-bottom:16px}.msec>.lbl{display:block;margin-bottom:6px}.mseg{display:flex;margin-bottom:8px}.mseg button{flex:1}
+.mleg{display:flex;flex-direction:column;gap:3px;color:var(--mut)}.mleg span{display:flex;align-items:center;gap:6px}.mleg b{color:#fff;margin-left:auto;font-weight:400}.mleg i{display:inline-block;width:14px;height:3px}.mleg i.dot{width:9px;height:9px;border-radius:50%}.mleg.sub{margin:2px 0 8px 22px}.mleg small{font:10px 'JetBrains Mono',monospace;color:#666}
+.mly{display:flex;gap:6px;align-items:center;margin:4px 0}.mapc{background:#0A0A0A;min-height:300px}.leaflet-container{background:#0A0A0A;font-family:Jost,sans-serif}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip,.mtip{background:#121212!important;color:#fff!important;border:1px solid var(--line)!important;border-radius:0!important;box-shadow:none!important}.mtip:before{display:none}.leaflet-popup-content{margin:10px 12px;font-size:12px}.mpr{display:flex;gap:12px;justify-content:space-between}.mpr span{font:10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--mut)}
+.leaflet-bar a{background:#121212!important;color:#fff!important;border-radius:0!important;border-color:var(--line)!important}.leaflet-bar{border-radius:0!important;border:1px solid var(--line)!important}.leaflet-control-attribution{background:rgba(10,10,10,.8)!important;color:#777!important}.leaflet-control-attribution a{color:#9A9A9A!important}
 .bcol{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:160px;background:rgba(10,10,10,.85)}
 .bcol h5{margin:0;padding:10px;border-bottom:1px solid var(--line);font:500 11px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between}
 .bcard{margin:8px;padding:10px;background:var(--card);border:1px solid var(--line);cursor:pointer;font-size:14px}.bcard:hover{border-color:var(--acc)}
@@ -192,8 +198,9 @@ details.lr{margin-top:16px}
 <p class="sub">Kansas Certified Sites and public LOIS listings (Kansas Commerce, Evergy, Greater Wichita Partnership) of 100+ acres; smaller sites are excluded, and a suspect acreage is kept only if another source shows 100+ acres, ranked 0–100 overall: <b>60% infrastructure</b> (high-voltage transmission, substations, gas pipelines, scale, fiber, water) and <b>40% community</b> (45% laws &amp; zoning, 30% local news about the site’s own city/county, 25% the local economic development org’s data-center/tech marketing and incentives, all with cited sources). Each site also shows whether it is inside city limits. Tap a site for the breakdown, every cited issue and who to call.</p>
 <div class="stats mono" id="stats"></div>
 <div class="stagebar" id="sbL" aria-label="Pipeline by stage"></div>
-<div class="tools"><button class="tbtn" id="fbL" type="button" onclick="$('fdL').showModal()">Filters</button><button class="tbtn" id="addBtn" type="button" hidden>Add site</button><span class="seg"><button type="button" data-v="land" data-mode="list">List</button><button type="button" data-v="land" data-mode="board">Board</button></span><span class="count lbl mono" id="count"></span></div>
+<div class="tools"><button class="tbtn" id="fbL" type="button" onclick="$('fdL').showModal()">Filters</button><button class="tbtn" id="addBtn" type="button" hidden>Add site</button><span class="seg"><button type="button" data-v="land" data-mode="list">List</button><button type="button" data-v="land" data-mode="board">Board</button><button type="button" data-v="land" data-mode="map">Map</button></span><span class="count lbl mono" id="count"></span></div>
 <div class="board" id="bL"></div>
+<div class="mapbox" id="mL" aria-label="Kansas map"></div>
 <div id="listL">
 <div class="cards" id="cards"></div>
 <div class="tblwrap"><table id="tbl"><thead><tr>
@@ -209,8 +216,9 @@ details.lr{margin-top:16px}
 <p class="sub">Development land of 4–12 acres (5–10 is the target; anything outside is flagged) and existing self-storage facilities for sale in Wichita, Overland Park, Kansas City KS, Olathe, Topeka and Lawrence. Each row is scored 0–100: <b>demand 30</b> (3-mile population, growth, income, renters, permits, lakes), <b>competition 25</b> (self-storage SF per person within 3 mi), <b>visibility 15</b> (KDOT traffic count on the frontage road), <b>zoning 20</b> (by right / conditional / not permitted, code cited) and <b>price 10</b>. Tap a row for the breakdown, format fit, sources and who to call.</p>
 <div class="stats mono" id="sStats"></div>
 <div class="stagebar" id="sbS" aria-label="Pipeline by stage"></div>
-<div class="tools"><button class="tbtn" id="fbS" type="button" onclick="$('fdS').showModal()">Filters</button><span class="seg"><button type="button" data-v="storage" data-mode="list">List</button><button type="button" data-v="storage" data-mode="board">Board</button></span><span class="count lbl mono" id="sCount"></span></div>
+<div class="tools"><button class="tbtn" id="fbS" type="button" onclick="$('fdS').showModal()">Filters</button><span class="seg"><button type="button" data-v="storage" data-mode="list">List</button><button type="button" data-v="storage" data-mode="board">Board</button><button type="button" data-v="storage" data-mode="map">Map</button></span><span class="count lbl mono" id="sCount"></span></div>
 <div class="board" id="bS"></div>
+<div class="mapbox" id="mS" aria-label="Kansas map"></div>
 <div id="listS">
 <div class="cards" id="sCards"></div>
 <div class="tblwrap"><table id="sTbl"><thead><tr>
@@ -658,9 +666,49 @@ function setMode(v,m){MODE[v]=m;try{localStorage.setItem('edks_mode',JSON.string
 document.addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.v,b.dataset.mode)});
 function board(v,R){const cap=60;return STAGES.map(s=>{const L=R.filter(o=>stageOf(v,o.id)===s);return `<div class="bcol"><h5><span>${esc(stL(s))}</span><span>${L.length}</span></h5>${L.slice(0,cap).map(o=>`<div class="bcard" data-id="${esc(o.id)}"><div class="bh"><b>${esc(o.name)}</b><span class="mono acc">${LS(v,o)}</span></div><div class="lbl">${v==='land'?esc(o.city)+' · '+fmt(o.acres,0)+' ac'+(pr(o).per_acre!=null?' · $'+fmt(pr(o).per_acre,0)+'/ac':''):esc(o.city_label)+' · '+sizeTxt(o)+(o.price?' · '+money(o.price):'')}</div><select class="inp sel" data-bstage="${v}" data-sid="${esc(o.id)}" aria-label="Move stage"${RO()?' disabled':''}>${STAGES.map(x=>`<option value="${esc(x)}"${x===s?' selected':''}>${esc(stL(x))}</option>`).join('')}</select></div>`).join('')}${L.length>cap?`<p class="lbl mono" style="padding:0 10px">+${L.length-cap} more · narrow with Filters</p>`:''}</div>`}).join('')}
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.bstage)setStage(t.dataset.bstage,t.dataset.sid,t.value)});
-function afterRender(v,R){const L=v==='land';const bd=$(L?'bL':'bS');const isB=MODE[v]==='board';bd.classList.toggle('on',isB);bd.innerHTML=isB?board(v,R):'';
- $(L?'listL':'listS').hidden=isB;document.querySelectorAll(`[data-mode][data-v="${v}"]`).forEach(b=>b.classList.toggle('on',b.dataset.mode===MODE[v]));
+function afterRender(v,R){const L=v==='land';const bd=$(L?'bL':'bS');const isB=MODE[v]==='board',isM=MODE[v]==='map';bd.classList.toggle('on',isB);bd.innerHTML=isB?board(v,R):'';
+ $(L?'listL':'listS').hidden=isB||isM;$(L?'mL':'mS').classList.toggle('on',isM);if(isM)drawMap(v,R);document.querySelectorAll(`[data-mode][data-v="${v}"]`).forEach(b=>b.classList.toggle('on',b.dataset.mode===MODE[v]));
  const n=fCount(v);$(L?'fbL':'fbS').innerHTML='Filters'+(n?' · <b>'+n+'</b>':'');stageBar(v);stChk(v);$(L?'lrLb':'lrSb').innerHTML=trackDrivers(v)+learn(v)}
+// ---- Kansas map: sites from the current filtered list, coloured by a chosen view, with lazy-loaded infrastructure layers
+const KM_KS_B=[[36.99,-102.06],[40.01,-94.58]];const KM_MAPS={};const KM_MV={land:'stage',storage:'stage'};const KM_MLY=new Set();try{Object.assign(KM_MV,JSON.parse(localStorage.getItem('edks_mv')||'{}'));JSON.parse(localStorage.getItem('edks_mly')||'[]').forEach(x=>KM_MLY.add(x))}catch(e){}
+const KM_STC={'New':'#F14B21','Under Consideration':'#9A9A9A','Reviewing':'#E8C547','Contacted':'#4FB3D9','In Diligence':'#7B8CF0','LOI Submitted':'#B07CE8','Under Contract':'#5CC98A','Closed':'#2E9E5B','Passed':'#555555','On Hold':'#8A6D3B'};
+const KM_PAL=['#4FB3D9','#E8C547','#5CC98A','#B07CE8','#F28C6B','#7B8CF0','#D97CB0','#9AD94F','#9A9A9A'];
+const KM_SCB=[[80,'80+','#5CC98A'],[70,'70–79','#9AD94F'],[60,'60–69','#E8C547'],[50,'50–59','#F28C6B'],[0,'Under 50','#777777']];
+const KM_LYR=[['lines','Transmission lines','HIFLD · public domain'],['subs','Substations','© OpenStreetMap contributors · ODbL'],['gas','Gas pipelines','EIA · public domain'],['aadt','Traffic counts (AADT)','KDOT AADT flow map']];
+const KM_LCOL={'345':'#F14B21','220-287':'#E8C547','100-161':'#4FB3D9'};const KM_LGD={};
+function mViews(v){return v==='land'?[['stage','Stage'],['score','Score'],['util','Utility']]:[['stage','Stage'],['score','Score'],['type','Type']]}
+function utilOf(o){return ((o.electric||[])[0]||{}).provider||'Unknown'}
+function mKey(v,o){const m=KM_MV[v];if(m==='stage')return stageOf(v,o.id);if(m==='score'){const s=LS(v,o)||0;return KM_SCB.find(b=>s>=b[0])[1]}if(m==='type')return o.kind==='facility'?'Existing facility':'Development land';return utilOf(o)}
+function mColors(v,R){const m=KM_MV[v];if(m==='stage')return KM_STC;if(m==='score')return Object.fromEntries(KM_SCB.map(b=>[b[1],b[2]]));if(m==='type')return {'Development land':'#4FB3D9','Existing facility':'#E8C547'};
+ const n={};R.forEach(o=>{const u=utilOf(o);n[u]=(n[u]||0)+1});const top=Object.entries(n).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);const c={};top.forEach((u,i)=>c[u]=u==='Unknown'?'#777777':KM_PAL[Math.min(i,KM_PAL.length-2)]);return c}
+let KM_LFP=null;function loadLeaflet(){if(window.L)return Promise.resolve();if(KM_LFP)return KM_LFP;KM_LFP=new Promise((ok,no)=>{const c=document.createElement('link');c.rel='stylesheet';c.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';c.integrity='sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';c.crossOrigin='';document.head.appendChild(c);const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';s.crossOrigin='';s.onload=ok;s.onerror=()=>{KM_LFP=null;no()};document.head.appendChild(s)});return KM_LFP}
+const KM_LBASE=(location.pathname.replace(/\/app\/?$/,'/').replace(/[^/]*$/,''))+'layers/';const KM_LDATA={};
+function lyrStyle(k){return k==='lines'?f=>({color:KM_LCOL[f.properties.c]||'#4FB3D9',weight:f.properties.c==='345'?2.4:f.properties.c==='220-287'?1.8:1.1,opacity:.85}):k==='gas'?()=>({color:'#5CC98A',weight:1.3,opacity:.75,dashArray:'4 3'}):f=>{const a=f.properties.v||0;return {color:a>=40000?'#F14B21':a>=15000?'#E8C547':a>=5000?'#B07CE8':'#666',weight:a>=40000?3.2:a>=15000?2.4:a>=5000?1.6:1,opacity:.85}}}
+function lyrPop(k,p){const r=(a,b)=>`<div class="mpr"><span>${a}</span><b>${esc(b==null||b===''?'—':String(b))}</b></div>`;
+ return k==='lines'?r('Line',(p.kv>0?p.kv+' kV':p.c+' kV class'))+r('Owner',p.o)+r('From',p.a)+r('To',p.b):k==='gas'?r('Pipeline',p.t)+r('Operator',p.o):k==='subs'?r('Substation',p.n)+r('Operator',p.o)+r('Voltage',p.kv?p.kv+' kV':null):r('AADT',p.v!=null?fmt(p.v,0):null)+r('Year',p.y)+r('Route',p.r)}
+async function lyrGet(k){if(!KM_LDATA[k])KM_LDATA[k]=fetch(KM_LBASE+k+'.geojson').then(r=>{if(!r.ok)throw new Error(k);return r.json()}).catch(e=>{delete KM_LDATA[k];throw e});return KM_LDATA[k]}
+function lyrLegend(k){return k==='lines'?[['#F14B21','345 kV'],['#E8C547','230–287 kV'],['#4FB3D9','100–161 kV']]:k==='gas'?[['#5CC98A','Interstate / intrastate']]:k==='subs'?[['#E8C547','Substation (larger: 230+ kV)']]:[['#F14B21','40k+'],['#E8C547','15k–40k'],['#B07CE8','5k–15k'],['#666','Under 5k']]}
+function mapShell(v){return `<div class="mapside"><div class="msec"><div class="lbl mono">Colour by</div><div class="seg mseg">${mViews(v).map(([k,l])=>`<button type="button" data-mview="${v}" data-mv="${k}" class="${KM_MV[v]===k?'on':''}">${l}</button>`).join('')}</div><div class="mleg" id="mleg-${v}"></div></div>
+ <div class="msec"><div class="lbl mono">Layers</div>${KM_LYR.map(([k,l,src])=>`<label class="chk mly"><input type="checkbox" data-mly="${v}" value="${k}"${KM_MLY.has(k)?' checked':''}><span class="lbl mono">${l}</span></label><div class="mleg sub" id="ml-${v}-${k}"${KM_MLY.has(k)?'':' hidden'}>${lyrLegend(k).map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')}<small>${src}</small></div>`).join('')}</div>
+ <div class="msec"><span class="lbl mono" id="mcount-${v}"></span></div></div><div class="mapc" id="mapc-${v}"></div>`}
+async function drawMap(v,R){const box=$(v==='land'?'mL':'mS');if(!box.dataset.init){box.innerHTML=mapShell(v);box.dataset.init='1'}
+ try{await loadLeaflet()}catch(e){$('mapc-'+v).innerHTML='<p class="desc" style="padding:16px">The map library could not load. Check the connection and try again.</p>';return}
+ let M=KM_MAPS[v];if(!M){const map=L.map('mapc-'+v,{zoomSnap:.25,minZoom:6,maxBounds:[[35.5,-104.5],[41.5,-92]],attributionControl:true,preferCanvas:true});map.fitBounds(KM_KS_B);
+  const E='https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';L.tileLayer(E+'World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,attribution:'Basemap &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors'}).addTo(map);map.createPane('lbl');map.getPane('lbl').style.zIndex=640;map.getPane('lbl').style.pointerEvents='none';L.tileLayer(E+'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,pane:'lbl'}).addTo(map);
+  map.createPane('sites');map.getPane('sites').style.zIndex=650;M=KM_MAPS[v]={map,sites:L.layerGroup().addTo(map),ov:{}};KM_MLY.forEach(k=>toggleLayer(v,k,true))}
+ setTimeout(()=>M.map.invalidateSize(),0);M.sites.clearLayers();const C=mColors(v,R),n={};let pl=0;
+ R.forEach(o=>{if(typeof o.lat!=='number'||typeof o.lon!=='number')return;pl++;const k=mKey(v,o);n[k]=(n[k]||0)+1;
+  const mk=L.circleMarker([o.lat,o.lon],{pane:'sites',radius:6,color:'#0A0A0A',weight:1.5,fillColor:C[k]||'#777',fillOpacity:.95});
+  mk.bindTooltip(`<b>${esc(o.name)}</b><br><span class="mono">${esc(k)} · ${LS(v,o)??'—'}</span>`,{direction:'top',offset:[0,-6],className:'mtip'});
+  mk.on('click',()=>v==='land'?openSite(o.id):openStorage(o.id));M.sites.addLayer(mk)});
+ $('mleg-'+v).innerHTML=Object.keys(C).filter(k=>n[k]).map(k=>`<span><i class="dot" style="background:${C[k]}"></i>${esc(k)} <b class="mono">${n[k]}</b></span>`).join('')||'<span class="lbl">No sites match the filters.</span>';
+ $('mcount-'+v).textContent=`${pl} of ${R.length} on map`+(pl<R.length?' · '+(R.length-pl)+' without a location':'')}
+async function toggleLayer(v,k,on){const M=KM_MAPS[v];const lg=$('ml-'+v+'-'+k);if(lg)lg.hidden=!on;if(!M)return;
+ if(on){try{const g=await lyrGet(k);if(!M.ov[k]){M.ov[k]=L.geoJSON(g,{style:k==='subs'?undefined:lyrStyle(k),pointToLayer:k==='subs'?(f,ll)=>L.circleMarker(ll,{radius:f.properties.kv>=230?4:2.6,color:'#E8C547',weight:1,fillColor:'#0A0A0A',fillOpacity:1}):undefined,onEachFeature:(f,l)=>l.bindPopup(lyrPop(k,f.properties))})}if(KM_MLY.has(k))M.ov[k].addTo(M.map)}catch(e){if(lg)lg.insertAdjacentHTML('beforeend','<small>Layer could not load.</small>')}}
+ else if(M.ov[k])M.map.removeLayer(M.ov[k])}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-mview]');if(!b)return;KM_MV[b.dataset.mview]=b.dataset.mv;try{localStorage.setItem('edks_mv',JSON.stringify(KM_MV))}catch(x){}document.querySelectorAll(`[data-mview="${b.dataset.mview}"]`).forEach(x=>x.classList.toggle('on',x===b));b.dataset.mview==='land'?render():sRender()});
+document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.dataset.mly)return;t.checked?KM_MLY.add(t.value):KM_MLY.delete(t.value);try{localStorage.setItem('edks_mly',JSON.stringify([...KM_MLY]))}catch(x){}
+ document.querySelectorAll(`[data-mly][value="${t.value}"]`).forEach(x=>x.checked=t.checked);['land','storage'].forEach(v=>toggleLayer(v,t.value,t.checked))});
 // ---- learning loop: what the stage decisions say about what gets pursued or passed
 const med=a=>{a=a.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y);if(!a.length)return null;const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};
 function learn(v){const ev=PS.events.filter(e=>e.view===v&&e.type==='stage');
