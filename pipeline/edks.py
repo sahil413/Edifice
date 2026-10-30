@@ -218,9 +218,14 @@ def cmd_push(a):
         if ls is None or base is None or not isinstance(sc, (int, float)):
             return sc
         return round(sc + (ls - base), 1)
+    # Durable hand overrides (overrides/{site_id}.fields, admin SDK only): top-level fields that replace the
+    # source values on every push, so a rename or merged description survives the LOIS refresh.
+    OV = {d.id: (d.to_dict() or {}).get("fields") or {} for d in client.collection("overrides").stream()}
     for view, rows in views.items():
         for r in rows:
             rid = str(r["id"])
+            if OV.get(rid):
+                r.update(OV[rid])
             if "/" in rid or rid.startswith("__"):
                 die(f"unusable site id {rid!r}")
             if rid in manual or rid.startswith("m-"):
