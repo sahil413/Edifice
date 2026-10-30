@@ -68,6 +68,8 @@ service cloud.firestore {
     // Admin-only runtime config written by the pipeline (e.g. config/senders: the Gmail accounts allowed
     // to send from the app). Addresses are never in this file; they are set at runtime.
     match /config/{id} { allow read: if admin(); allow write: if false; }
+    // Public Mapbox map token (URL-restricted pk.): readable by any signed-in member, never client-written.
+    match /config/mapbox { allow read: if member(); allow write: if false; }
     function senders() {
       let p = /databases/$(database)/documents/config/senders;
       return exists(p) ? get(p).data.emails : [];

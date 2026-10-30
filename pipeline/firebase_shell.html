@@ -191,6 +191,8 @@ async function boot(user, email, me0) {
   window.EDKS_BK = {
     email, role: () => role, canEdit, isAdmin: () => role === 'admin', users: () => users, status, err: errTxt,
     signOut: () => signOut(auth),
+    // Public Mapbox token (pk., URL-restricted) kept in Firestore config/mapbox so it never ships in the repo.
+    mapboxToken: () => getDoc(doc(db, 'config', 'mapbox')).then(d => (d.exists() && d.data().token) || '').catch(() => ''),
     add(e, stage) {
       err = '';
       const b = writeBatch(db), R = RIDS.has(e.site_id), dc = R ? 'rdeals' : 'deals';

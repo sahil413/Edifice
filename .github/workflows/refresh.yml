@@ -172,8 +172,7 @@ jobs:
       # build if any data, contact or email address appears in it) and sites/app/ redirects to /sites/.
       # Otherwise the StaticCrypt page stays live and the sign-in app is staged at sites/app/.
       - name: Render
-        # Mapbox token injection is paused: GitHub push protection blocks the rendered page that embeds it.
-        # Re-enable with: env: MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }} once the token is allowed.
+        # Mapbox token is not injected: the signed-in page reads it from Firestore config/mapbox.
         run: |
           R="python3 pipeline/render.py --data $RUNNER_TEMP/data/sites.json --storage $RUNNER_TEMP/data/storage.json --password-env SITES_PASSWORD"
           if [ "$SITES_MODE" = "firebase" ]; then

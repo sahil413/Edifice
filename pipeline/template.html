@@ -686,9 +686,10 @@ function utilOf(o){return ((o.electric||[])[0]||{}).provider||'Unknown'}
 function mKey(v,o){const m=KM.by;if(m==='stage')return stageOf(v,o.id);if(m==='score'){const s=LS(v,o)||0;return KM_SCB.find(b=>s>=b[0])[1]}if(m==='type')return v==='land'?'Powered land':o.kind==='facility'?'Storage facility':'Storage land';return utilOf(o)}
 function mColors(P){const m=KM.by;if(m==='stage')return KM_STC;if(m==='score')return Object.fromEntries(KM_SCB.map(b=>[b[1],b[2]]));if(m==='type')return KM_TYC;
  const n={};P.forEach(([v,o])=>{const u=utilOf(o);n[u]=(n[u]||0)+1});const c={};Object.entries(n).sort((a,b)=>b[1]-a[1]).forEach(([u],i)=>c[u]=u==='Unknown'?'#777777':KM_PAL[Math.min(i,KM_PAL.length-2)]);return c}
-// map engine: Mapbox GL (token injected at build from MAPBOX_PUBLIC_TOKEN) or MapLibre GL + OpenFreeMap dark when no token
-const KM_TOK='/*__MAPBOX__*/';const KM_MB=/^pk\./.test(KM_TOK);
-let KM_LFP=null;function loadGL(){if(window.mapboxgl||window.maplibregl)return Promise.resolve();if(KM_LFP)return KM_LFP;
+// map engine: Mapbox GL (public token read after sign-in from Firestore config/mapbox) or MapLibre GL + OpenFreeMap dark when no token
+let KM_TOK='',KM_MB=false,KM_TP=null;
+function kmToken(){if(KM_TP)return KM_TP;const B=window.EDKS_BK;KM_TP=(B&&B.mapboxToken?B.mapboxToken():Promise.resolve(window.EDKS_MAPBOX||'')).then(t=>{t=String(t||'').trim();if(/^pk\.[A-Za-z0-9._-]+$/.test(t)){KM_TOK=t;KM_MB=true}}).catch(()=>{});return KM_TP}
+let KM_LFP=null;async function loadGL(){await kmToken();if(window.mapboxgl||window.maplibregl)return;if(KM_LFP)return KM_LFP;
  const js=KM_MB?'https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js':'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js',css=js.replace(/\.js$/,'.css');
  KM_LFP=new Promise((ok,no)=>{const c=document.createElement('link');c.rel='stylesheet';c.href=css;document.head.appendChild(c);const s=document.createElement('script');s.src=js;s.onload=ok;s.onerror=()=>{KM_LFP=null;no()};document.head.appendChild(s)});return KM_LFP}
 const KM_LBASE=(location.pathname.replace(/\/app\/?$/,'/').replace(/[^/]*$/,''))+'layers/';

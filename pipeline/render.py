@@ -54,11 +54,8 @@ def load_pipeline_config(password_env):
     return cfg
 
 def _mapbox(tpl):
-    """Inject the public Mapbox token (pk., URL-restricted) from MAPBOX_PUBLIC_TOKEN; without it the map uses MapLibre."""
-    tok = os.environ.get("MAPBOX_PUBLIC_TOKEN", "").strip()
-    if not re.fullmatch(r"pk\.[A-Za-z0-9._-]+", tok):
-        tok = ""
-    return tpl.replace("/*__MAPBOX__*/", tok)
+    """No-op: the Mapbox token is read at runtime from Firestore config/mapbox, never baked into output."""
+    return tpl
 
 
 def build_html(data, engine=EMAIL_STUB):
