@@ -290,3 +290,15 @@ test('learned weights: members read, nobody writes from the client', async () =>
   for (const u of [VIEWER, EDITOR, ADMIN]) await assertFails(setDoc(doc(as(u), 'learnings', 'weights'), { version: 9 }));
   await assertFails(getDoc(doc(as(STRANGER), 'learnings', 'weights')));
 });
+
+test('listed date (days on market): admins set/clear; editors keep it unchanged; format checked', async () => {
+  const A = as(ADMIN), E = as(EDITOR), base = (by, x = {}) => Object.assign({ site_id: 's1', view: 'land', name: 'Site', stage: 'New', updated: serverTimestamp(), updated_by: by }, x);
+  await assertSucceeds(setDoc(doc(A, 'deals', 's1'), base(ADMIN, { listed: '2026-09-01' }), { merge: true }));
+  await assertFails(setDoc(doc(A, 'deals', 's1'), base(ADMIN, { listed: '09/01/2026' }), { merge: true }));
+  await assertFails(setDoc(doc(E, 'deals', 's1'), base(EDITOR, { listed: '2026-10-01' }), { merge: true }));
+  await assertSucceeds(setDoc(doc(E, 'deals', 's1'), base(EDITOR, { stage: 'Reviewing' }), { merge: true }));   // stage change keeps the date
+  let d; await env.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'deals', 's1'))).data(); });
+  if (d.listed !== '2026-09-01') throw new Error('listed lost on stage change');
+  await assertFails(setDoc(doc(E, 'deals', 's1'), base(EDITOR)));                                               // overwrite dropping it
+  await assertSucceeds(setDoc(doc(A, 'deals', 's1'), base(ADMIN)));                                              // admin may clear
+});

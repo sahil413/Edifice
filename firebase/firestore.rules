@@ -93,7 +93,10 @@ service cloud.firestore {
 
     function dealOk(siteId) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['site_id', 'view', 'name', 'stage', 'updated', 'updated_by'])
+      return d.keys().hasOnly(['site_id', 'view', 'name', 'stage', 'updated', 'updated_by', 'listed'])
+        && (!('listed' in d) || (d.listed is string && d.listed.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+        // Only admins may set, change or clear the listed date (days on market).
+        && (admin() || d.get('listed', null) == (resource == null ? null : resource.data.get('listed', null)))
         && d.site_id == siteId && d.view in ['land', 'storage'] && d.stage in stages()
         && d.updated_by == email() && d.updated is timestamp;
     }

@@ -645,6 +645,35 @@ def _slug(name):
     import re
     return "m-" + (re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:34] or uuid.uuid4().hex[:8])
 
+def _listed_ok(v):
+    try:
+        d = dt.date.fromisoformat(str(v))
+    except ValueError:
+        die(f"listed date must be YYYY-MM-DD, got {v!r}")
+    if d > dt.datetime.now(__import__("zoneinfo").ZoneInfo("America/New_York")).date():
+        die(f"listed date {d} is in the future")
+    return d.isoformat()
+
+def cmd_set_listed(a):
+    """Set (or --clear) a site's listed date for Days on market. Writes only deals/rdeals {listed, updated,
+    updated_by}; stage is never touched. The sync push never writes deal docs, so the date is never overwritten."""
+    client = db()
+    view, name, restricted = locate(client, a.site_id)
+    dref = client.collection(_cols(restricted)[1]).document(a.site_id)
+    snap = dref.get(); cur = (snap.to_dict() or {}) if snap.exists else {}
+    data = {"site_id": a.site_id, "view": cur.get("view") or view, "name": cur.get("name") or name,
+            "updated": dt.datetime.now(dt.timezone.utc), "updated_by": a.by}
+    if not cur.get("stage"):
+        data["stage"] = "New"
+    if a.clear:
+        from google.cloud import firestore as gcf
+        data["listed"] = gcf.DELETE_FIELD; msg = "cleared"
+    else:
+        if not a.date: die("give a date (YYYY-MM-DD) or --clear")
+        data["listed"] = _listed_ok(a.date); msg = data["listed"]
+    dref.set(data, merge=True)
+    print(f"[edks] {a.site_id}: listed date {msg} (was {cur.get('listed') or 'unset'}); stage unchanged ({cur.get('stage') or 'New'})")
+
 def cmd_add_manual(a):
     """Spec: {id?, restricted?, name, input, edits{}, extra{}, stage, by, events:[{type, text, reasons, to_stage,
     from_stage, assignee, due, ts, key}]}. Idempotent: event ids come from the spec."""
@@ -666,6 +695,8 @@ def cmd_add_manual(a):
     dref = client.collection(dcol).document(sid)
     dref.set({"site_id": sid, "view": "land", "name": sp["name"], "stage": sp.get("stage") or "New",
               "updated": dt.datetime.now(dt.timezone.utc), "updated_by": by}, merge=True)
+    if sp.get("listed"):
+        dref.set({"listed": _listed_ok(sp["listed"])}, merge=True)
     n = 0
     for i, e in enumerate(sp.get("events") or []):
         eid = "m" + hashlib.sha1(f"{sid}|{e.get('key') or i}".encode()).hexdigest()[:15]
@@ -855,6 +886,8 @@ def main():
     p = sp.add_parser("import"); p.add_argument("file")
     p = sp.add_parser("add-manual"); p.add_argument("--spec", required=True)
     p = sp.add_parser("delete-manual"); p.add_argument("site_id")
+    p = sp.add_parser("set-listed", help="set a site's listed date (Days on market)"); p.add_argument("site_id"); p.add_argument("date", nargs="?")
+    p.add_argument("--clear", action="store_true"); p.add_argument("--by", default="bot:cli")
     p = sp.add_parser("enrich"); p.add_argument("--all", action="store_true"); p.add_argument("--site"); p.add_argument("--count", action="store_true")
     p.add_argument("--dry-run", nargs="?", const=True, default=False, help="run every step but write nothing (optional: output JSON path)")
     for k in ("--cache-dir", "--geo-cache-dir", "--contacts", "--curated", "--local-review", "--state", "--tracker-review", "--tracker-state"):
@@ -878,7 +911,7 @@ def main():
     {"push": cmd_push, "users": cmd_users, "followups": cmd_followups, "done": lambda a: cmd_status(a, "done"),
      "reopen": lambda a: cmd_status(a, "open"), "note": cmd_note, "followup": cmd_followup, "dump": cmd_dump,
      "push-learnings": cmd_push_learnings, "import": cmd_import, "verify": cmd_verify,
-     "add-manual": cmd_add_manual, "delete-manual": cmd_delete_manual, "enrich": cmd_enrich,
+     "add-manual": cmd_add_manual, "delete-manual": cmd_delete_manual, "set-listed": cmd_set_listed, "enrich": cmd_enrich,
      "stage": cmd_stage, "reviews": cmd_reviews, "mark-asked": cmd_mark_asked, "answer": cmd_answer,
      "backfill-reviews": cmd_backfill_reviews, "learn": cmd_learn, "senders": cmd_senders, "migrate-under-consideration": cmd_migrate_under_consideration}[a.cmd](a)
 

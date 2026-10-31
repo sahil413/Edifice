@@ -27,7 +27,7 @@ body.gated .wrap{visibility:hidden}
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-auth.js';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc, getDoc, getDocs, getDocsFromCache, documentId, Timestamp, collection, collectionGroup, onSnapshot, query, where, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc, getDoc, getDocs, getDocsFromCache, documentId, Timestamp, collection, collectionGroup, onSnapshot, query, where, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp, deleteField } from 'https://www.gstatic.com/firebasejs/__FB_VER__/firebase-firestore.js';
 
 const CFG = __FB_CONFIG__, EMU = __FB_EMU__;
 const CERT_LIST_URL = 'https://www.kansascommerce.gov/program/business-incentives-and-services/certified-sites-program/sites/';
@@ -239,12 +239,25 @@ async function boot(user, email, me0) {
       err = '';
       const b = writeBatch(db), R = RIDS.has(e.site_id), dc = R ? 'rdeals' : 'deals';
       b.set(doc(db, dc, e.site_id, R ? 'revents' : 'events', e.event_id), clean(Object.fromEntries(EVK.map(k => [k, e[k]]))));
-      b.set(doc(db, dc, e.site_id), { site_id: e.site_id, view: e.view, name: e.name || '', stage: stage || 'New', updated: serverTimestamp(), updated_by: email });
+      b.set(doc(db, dc, e.site_id), { site_id: e.site_id, view: e.view, name: e.name || '', stage: stage || 'New', updated: serverTimestamp(), updated_by: email }, { merge: true });
       // Every stage change files an admin-only review item (pending -> asked -> answered) for the learning loop.
       if (e.type === 'stage') b.set(doc(db, 'reviewQueue', e.event_id), { event_id: e.event_id, site_id: e.site_id, view: e.view, name: e.name || '',
         track: e.view === 'storage' ? 'storage' : 'power', from_stage: e.from_stage || '', to_stage: e.to_stage, who: email,
         reasons: (e.reasons || []).slice(0, 12), text: e.text || '', ts: e.ts, status: 'pending', restricted: R, created: serverTimestamp() });
       b.commit().catch(fail);
+    },
+    // Admin-only: set or clear a site's listed date (YYYY-MM-DD) on its deal doc. Only `listed` and the audit
+    // fields change; stage is left exactly as it is (an existing doc keeps its stage; a new one starts at New).
+    setListed(view, siteId, listed) {
+      err = '';
+      if (listed !== null && !/^\d{4}-\d{2}-\d{2}$/.test(listed)) return;
+      const R = RIDS.has(siteId), ref = doc(db, R ? 'rdeals' : 'deals', siteId);
+      getDoc(ref).then(s => {
+        const x = s.exists() ? s.data() : {};
+        const d = { site_id: siteId, view: x.view || view, name: x.name || '', stage: x.stage || 'New', updated: serverTimestamp(), updated_by: email };
+        d.listed = listed || deleteField();
+        return setDoc(ref, d, { merge: true });
+      }).catch(fail);
     },
     setFu(siteId, eventId, st) {
       err = '';
@@ -298,7 +311,7 @@ async function boot(user, email, me0) {
     apply(null, null, users);
   }, fail);
   let dealsM = {}, dealsR = {}, evM = [], evR = [];
-  const dmap = docs => { const o = {}; docs.forEach(d => { const x = d.data(); o[(x.view || 'land') + '|' + d.id] = { stage: x.stage, updated: tsIso(x.updated) || new Date().toISOString() }; }); return o; };
+  const dmap = docs => { const o = {}; docs.forEach(d => { const x = d.data(); o[(x.view || 'land') + '|' + d.id] = { stage: x.stage, updated: tsIso(x.updated) || new Date().toISOString(), listed: typeof x.listed === 'string' ? x.listed : '' }; }); return o; };
   const emap = q => q.docs.map(d => { const x = d.data(); return Object.assign({}, x, { event_id: d.id, site_id: x.site_id || d.ref.parent.parent.id, reasons: x.reasons || [] }); });
   dealsSource('deals', (q, docs) => {
     pend.d = q.metadata.hasPendingWrites; cache = q.metadata.fromCache; if (!pend.d && !cache) lastOk = new Date();
@@ -341,7 +354,7 @@ async function boot(user, email, me0) {
       if (x.type === 'stage' && (!latest[x.site_id] || x.ts > latest[x.site_id].ts)) latest[x.site_id] = x;
       if (n % 400 === 0) { b.commit().catch(fail); b = writeBatch(db); }
     }
-    for (const x of Object.values(latest)) b.set(doc(db, 'deals', x.site_id), { site_id: x.site_id, view: x.view, name: x.name || '', stage: x.to_stage, updated: serverTimestamp(), updated_by: email });
+    for (const x of Object.values(latest)) b.set(doc(db, 'deals', x.site_id), { site_id: x.site_id, view: x.view, name: x.name || '', stage: x.to_stage, updated: serverTimestamp(), updated_by: email }, { merge: true });
     const flips = (old.events || []).filter(e => e.type === 'followup_status' && e.ref_id).sort((a, c) => a.ts < c.ts ? -1 : 1);
     b.commit().then(() => {
       for (const f of flips) { const t = ev.find(e => e.event_id === f.ref_id) || events.find(e => e.event_id === f.ref_id); if (t && ids.has(t.site_id)) updateDoc(doc(db, 'deals', t.site_id, 'events', f.ref_id), { status: f.status, done_at: f.status === 'done' ? serverTimestamp() : null, done_by: f.status === 'done' ? email : null }).catch(fail); }
