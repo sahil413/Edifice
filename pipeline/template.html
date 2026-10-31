@@ -201,6 +201,67 @@ details.lr{margin-top:16px}
  .mapside{position:absolute;left:0;right:0;bottom:0;top:auto;max-height:45vh;overflow:auto;border-radius:14px 14px 0 0;z-index:5}
  .mapside::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:#555;margin:6px auto 8px}
 }
+
+/* redesign 2 — Figma 6:3 / 7:235 / 7:302 */
+.brand svg,.logo svg{display:none}
+.eyebrow{color:#9a9a9a!important}
+.topnav button[aria-selected="true"]{box-shadow:inset 0 -1px 0 #fff!important}
+#tbl [style*="var(--acc)"],#sTbl [style*="var(--acc)"],.card [style*="var(--acc)"],.stats [style*="var(--acc)"],.tile [style*="var(--acc)"]{color:inherit!important}
+.stagebar{display:flex;flex-wrap:wrap;gap:4px 28px;border:0!important;margin:22px 0 4px}
+.stagebar button{background:none!important;border:0!important;padding:0!important;opacity:.7}
+.stagebar button b{font:300 28px 'Jost',sans-serif!important}
+.stagebar button span{font-size:9px!important;letter-spacing:.12em}
+.stagebar button.on,.stagebar button:hover{opacity:1}.stagebar button.on span{color:#fff!important}
+.stagebar button.on b{border-bottom:1px solid #fff}
+.qchips{display:inline-flex;gap:6px;flex-wrap:wrap}
+.tbtn.qc{background:transparent;border:1px solid rgba(255,255,255,.14);color:#9a9a9a}
+.tbtn.qc.on{background:#1e1e1e;border-color:rgba(255,255,255,.24);color:#fff}
+.btn.pri,#addBtn{background:var(--acc)!important;border-color:var(--acc)!important;color:#fff!important}
+.btn.pri~.btn.pri{background:transparent!important;border-color:rgba(255,255,255,.24)!important}
+.sel.pri{border-color:var(--acc)}
+details.addf{margin-top:8px}details.addf>summary{list-style:none;display:inline-block;cursor:pointer}details.addf>summary::-webkit-details-marker{display:none}details.addf[open]>summary{margin-bottom:8px;color:#9a9a9a}
+.btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,.24);color:#b5b3ae}
+/* map: full-bleed canvas with floating panels */
+.mapmod{display:block!important;position:relative;height:calc(100vh - 140px);min-height:520px;border:1px solid rgba(255,255,255,.14)}
+.mapmod[hidden]{display:none!important}
+#kmMap{position:absolute;inset:0;height:100%}
+.mapmod .mapside{position:absolute!important;inset:0!important;background:none!important;border:0!important;padding:0!important;overflow:visible!important;pointer-events:none;max-height:none!important;z-index:3}
+.mapmod .mapside::before{display:none!important}
+.kpan{pointer-events:auto;background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.14);padding:14px;font-size:12px;position:absolute;overflow:auto}
+.kp-main{left:16px;top:16px;width:228px;max-height:calc(100% - 200px)}
+.kp-leg{left:16px;bottom:16px;width:228px;max-height:180px}
+.kp-lyr{pointer-events:auto;position:absolute;left:50%;transform:translateX(-50%);bottom:16px;display:flex;flex-direction:column;align-items:center;gap:6px;max-width:calc(100% - 560px)}
+.kp-lyrh{display:none}
+.kp-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.kchip{display:inline-flex!important;border:1px solid rgba(255,255,255,.14);background:rgba(18,18,18,.95);padding:6px 9px;cursor:pointer;margin:0!important}
+.kchip input{position:absolute;opacity:0;pointer-events:none}
+.kchip .lbl{font-size:9px;color:#9a9a9a;letter-spacing:.1em}
+.kchip:has(input:checked){background:#1e1e1e;border-color:rgba(255,255,255,.24)}.kchip:has(input:checked) .lbl{color:#fff}
+.kp-lsub{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.kp-lsub .mleg{background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.14);padding:6px 8px;margin:0}
+.kp-card{right:16px;bottom:16px;width:272px}
+.kp-card .kch{display:flex;justify-content:space-between;align-items:center}
+.kp-card h3{font:300 20px 'Jost',sans-serif;margin:14px 0 6px;color:#fff}
+.kp-card .kcs{color:#9a9a9a}
+.kcg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 10px}.kcg b{display:block;font:300 16px 'Jost',sans-serif;color:#fff;margin-top:4px}
+.kcsub{color:#b5b3ae;margin:0 0 12px}
+.kcb{display:flex;gap:6px}.kcb .btn.pri{flex:1;background:#fff!important;border-color:#fff!important;color:#0a0a0a!important}
+.mapmod .msec{padding:10px 0}
+@media(max-width:760px){
+ .mapmod{height:calc(100vh - 120px);min-height:440px}
+ .kp-main{left:8px;right:8px;top:auto;bottom:0;width:auto;max-height:42%;border-radius:14px 14px 0 0}
+ .kp-main::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:#555;margin:-6px auto 10px}
+ .kp-leg{display:none}
+ .kp-lyr{top:8px;bottom:auto;left:8px;right:8px;transform:none;max-width:none;align-items:flex-start}.kp-chips{justify-content:flex-start}
+ .kp-lsub{display:none}
+ .kp-card{left:8px;right:8px;width:auto;bottom:0;z-index:6;border-radius:14px 14px 0 0}
+ .tools .qchips{order:-1;width:100%}
+}
+.stagebar button.on,.stagebar button{outline:0!important;box-shadow:none!important}.stagebar button.on b{border:0!important}.stagebar button[data-sall]{order:-1}
+.kp-lsub .mleg[hidden],.kp-lsub .mleg.sub[hidden]{display:none!important}
+.kp-main{max-height:calc(100% - 250px)!important}
+.kcb a.btn{border-color:rgba(255,255,255,.24)!important;color:#fff!important;background:transparent!important}
+.stats{gap:4px 22px!important}
+@media(max-width:760px){.kp-card{background:#121212!important;max-height:60%}}
 </style>
 </head>
 <body>
@@ -221,7 +282,7 @@ details.lr{margin-top:16px}
 <details class="how"><summary class="lbl mono">How scoring works</summary><p class="sub">Kansas Certified Sites and public LOIS listings (Kansas Commerce, Evergy, Greater Wichita Partnership) of 100+ acres; smaller sites are excluded, and a suspect acreage is kept only if another source shows 100+ acres, ranked 0–100 overall: <b>60% infrastructure</b> (high-voltage transmission, substations, gas pipelines, scale, fiber, water) and <b>40% community</b> (45% laws &amp; zoning, 30% local news about the site’s own city/county, 25% the local economic development org’s data-center/tech marketing and incentives, all with cited sources). Each site also shows whether it is inside city limits. Tap a site for the breakdown, every cited issue and who to call.</p></details>
 <div class="stats mono" id="stats"></div>
 <div class="stagebar" id="sbL" aria-label="Pipeline by stage"></div>
-<div class="tools"><button class="tbtn" id="fbL" type="button" onclick="$('fdL').showModal()">Filters</button><button class="tbtn" id="addBtn" type="button" hidden>Add site</button><button class="tbtn" type="button" data-cols="tbl">Columns</button><span class="seg"><button type="button" data-v="land" data-mode="list">List</button><button type="button" data-v="land" data-mode="board">Board</button></span><span class="count lbl mono" id="count"></span></div>
+<div class="tools"><span class="qchips" data-qv="land"><button class="tbtn qc" type="button" data-q="fScore" data-qval="70">Score 70+</button><button class="tbtn qc" type="button" data-q="fKv" data-qval="345">345 kV</button><button class="tbtn qc" type="button" data-q="fAcres" data-qval="100">100+ ac</button></span><button class="tbtn" id="fbL" type="button" onclick="$('fdL').showModal()">Filters</button><button class="tbtn" id="addBtn" type="button" hidden>Add site</button><button class="tbtn" type="button" data-cols="tbl">Columns</button><span class="seg"><button type="button" data-v="land" data-mode="list">List</button><button type="button" data-v="land" data-mode="board">Board</button></span><span class="count lbl mono" id="count"></span></div>
 <div class="board" id="bL"></div>
 <div id="listL">
 <div class="cards" id="cards"></div>
@@ -238,7 +299,7 @@ details.lr{margin-top:16px}
 <details class="how"><summary class="lbl mono">How scoring works</summary><p class="sub">Development land of 4–12 acres (5–10 is the target; anything outside is flagged) and existing self-storage facilities for sale in Wichita, Overland Park, Kansas City KS, Olathe, Topeka and Lawrence. Each row is scored 0–100: <b>demand 30</b> (3-mile population, growth, income, renters, permits, lakes), <b>competition 25</b> (self-storage SF per person within 3 mi), <b>visibility 15</b> (KDOT traffic count on the frontage road), <b>zoning 20</b> (by right / conditional / not permitted, code cited) and <b>price 10</b>. Tap a row for the breakdown, format fit, sources and who to call.</p></details>
 <div class="stats mono" id="sStats"></div>
 <div class="stagebar" id="sbS" aria-label="Pipeline by stage"></div>
-<div class="tools"><button class="tbtn" id="fbS" type="button" onclick="$('fdS').showModal()">Filters</button><button class="tbtn" type="button" data-cols="sTbl">Columns</button><span class="seg"><button type="button" data-v="storage" data-mode="list">List</button><button type="button" data-v="storage" data-mode="board">Board</button></span><span class="count lbl mono" id="sCount"></span></div>
+<div class="tools"><span class="qchips" data-qv="storage"><button class="tbtn qc" type="button" data-q="sScore" data-qval="70">Score 70+</button><button class="tbtn qc" type="button" data-q="sFit" data-qval="1">5–10 ac</button></span><button class="tbtn" id="fbS" type="button" onclick="$('fdS').showModal()">Filters</button><button class="tbtn" type="button" data-cols="sTbl">Columns</button><span class="seg"><button type="button" data-v="storage" data-mode="list">List</button><button type="button" data-v="storage" data-mode="board">Board</button></span><span class="count lbl mono" id="sCount"></span></div>
 <div class="board" id="bS"></div>
 <div id="listS">
 <div class="cards" id="sCards"></div>
@@ -643,11 +704,11 @@ async function setStage(v,id,to){const o=objOf(v,id);const from=stageOf(v,id);if
 function dealBox(v,o){return `<div class="deal" id="dealBox" data-view="${v}" data-id="${esc(o.id)}"></div>`}
 function drawDeal(v,id){const b=$('dealBox');if(!b)return;const ob=document.querySelector('#dBadges .stg');if(ob)ob.outerHTML=stB(v,id);const E=evOf(v,id),st=stageOf(v,id);
  const fus=E.filter(e=>e.type==='followup'),notes=E.filter(e=>e.type==='note'),hist=E.filter(e=>e.type==='stage').slice().reverse();const open=fus.filter(f=>fuStatus(f)!=='done').length;
- b.innerHTML=`<div class="dealtop"><span class="lbl mono">Stage</span>${stB(v,id)}<label class="lbl mono" for="dStage">Move to</label><select id="dStage" class="inp sel"${RO()?' disabled title="View only"':''}>${STAGES.map(s=>`<option value="${esc(s)}"${s===st?' selected':''}>${esc(stL(s))}</option>`).join('')}</select></div>
+ b.innerHTML=`<div class="dealtop"><span class="lbl mono">Stage</span>${stB(v,id)}<label class="lbl mono" for="dStage">Move to</label><select id="dStage" class="inp sel pri"${RO()?' disabled title="View only"':''}>${STAGES.map(s=>`<option value="${esc(s)}"${s===st?' selected':''}>${esc(stL(s))}</option>`).join('')}</select></div>
  <div class="sec"><h4>Follow-ups for the bots · ${open} open</h4>${fus.map(f=>{const d=fuStatus(f)==='done';return `<label class="fu${d?' done':''}"><input type="checkbox" data-fu="${esc(f.event_id)}"${d?' checked':''}${RO()?' disabled':''}><span><span class="t">${esc(f.text)}</span><span class="meta mono">${d?'Done':'Open'} · → ${esc(f.assignee||'Any bot')}${f.due?' · due '+esc(f.due):''} · ${esc(uName(f.by))} · ${when(f.ts)}</span></span></label>`}).join('')||'<p class="desc muted">No follow-ups yet.</p>'}
-  ${RO()?'':`<div class="addrow"><input id="fuText" class="inp" placeholder="Task for a bot, e.g. Pull the zoning code for this parcel"><input id="fuDue" class="inp" type="date" aria-label="Due date (optional)"><select id="fuWho" class="inp sel" aria-label="Assignee">${BOTS.map(x=>`<option>${esc(x)}</option>`).join('')}</select><button class="btn" data-act="fu">Add follow-up</button></div>`}</div>
+  ${RO()?'':`<details class="addf"><summary class="btn ghost">+ Add follow-up</summary><div class="addrow"><input id="fuText" class="inp" placeholder="Task for a bot, e.g. Pull the zoning code for this parcel"><input id="fuDue" class="inp" type="date" aria-label="Due date (optional)"><select id="fuWho" class="inp sel" aria-label="Assignee">${BOTS.map(x=>`<option>${esc(x)}</option>`).join('')}</select><button class="btn" data-act="fu">Save follow-up</button></div></details>`}</div>
  <div class="sec"><h4>Notes · ${notes.length}</h4><div class="thread">${notes.map(n=>`<div class="ev"><div class="meta mono">${esc(uName(n.by))} · ${when(n.ts)}</div><div>${esc(n.text).replace(/\n/g,'<br>')}</div></div>`).join('')||'<p class="desc muted">No notes yet.</p>'}</div>
-  ${RO()?'<p class="desc muted">View only: ask an admin for editor access to move stages, add notes or follow-ups.</p>':'<textarea id="noteText" class="inp" rows="3" placeholder="Leave a note"></textarea><div class="btns"><button class="btn" data-act="note">Add note</button></div>'}</div>`;drawHead(v,id);drawAct(v,id);drawHist(v,id)}
+  ${RO()?'<p class="desc muted">View only: ask an admin for editor access to move stages, add notes or follow-ups.</p>':'<details class="addf"><summary class="btn ghost">+ Add note</summary><textarea id="noteText" class="inp" rows="3" placeholder="Leave a note"></textarea><div class="btns"><button class="btn" data-act="note">Save note</button></div></details>'}</div>`;drawHead(v,id);drawAct(v,id);drawHist(v,id)}
 dlg.addEventListener('change',e=>{const b=$('dealBox');if(!b)return;const v=b.dataset.view,id=b.dataset.id;
  if(e.target.id==='dStage')setStage(v,id,e.target.value);
  else if(e.target.dataset.fu)addEv({type:'followup_status',view:v,site_id:id,name:objOf(v,id).name,ref_id:e.target.dataset.fu,status:e.target.checked?'done':'open'})});
@@ -686,7 +747,7 @@ function fReset(v){(v==='land'?F:SF).forEach(k=>{const el=$(k);if(/Sort$/.test(k
 function stChk(v){$(v==='land'?'fStageL':'fStageS').innerHTML=STAGES.map(s=>`<label class="chk"><input type="checkbox" data-stf="${v}" value="${esc(s)}"${STF[v].has(s)?' checked':''}><span class="lbl mono">${esc(stL(s))}</span></label>`).join('')}
 document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.dataset.stf)return;const v=t.dataset.stf;t.checked?STF[v].add(t.value):STF[v].delete(t.value);stfSave();v==='land'?render():sRender()});
 function stageBar(v){const all=v==='land'?S:SR;const n={};STAGES.forEach(s=>n[s]=0);all.forEach(o=>n[stageOf(v,o.id)]++);
- $(v==='land'?'sbL':'sbS').innerHTML=STAGES.map(s=>`<button type="button" data-sbar="${v}" data-st="${esc(s)}" class="${STF[v].has(s)?'on':''}${n[s]||STF[v].has(s)?'':' z'}" aria-pressed="${STF[v].has(s)}"><b>${n[s]}</b><span>${esc(stL(s))}</span></button>`).join('')}
+ $(v==='land'?'sbL':'sbS').innerHTML=`<button type="button" data-sall="${v}" class="${STF[v].size?'':'on'}" aria-pressed="${!STF[v].size}"><b>${(v==='land'?S:SR).length}</b><span>All</span></button>`+STAGES.map(s=>`<button type="button" data-sbar="${v}" data-st="${esc(s)}" class="${STF[v].has(s)?'on':''}${n[s]||STF[v].has(s)?'':' z'}" aria-pressed="${STF[v].has(s)}"><b>${n[s]}</b><span>${esc(stL(s))}</span></button>`).join('')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-sbar]');if(!b)return;const v=b.dataset.sbar,s=b.dataset.st;STF[v].has(s)?STF[v].delete(s):STF[v].add(s);stfSave();v==='land'?render():sRender()});
 const MODE={land:'list',storage:'list'};try{const m=JSON.parse(localStorage.getItem('edks_mode')||'{}');Object.assign(MODE,m)}catch(e){}
 function setMode(v,m){MODE[v]=m;try{localStorage.setItem('edks_mode',JSON.stringify(MODE))}catch(e){}v==='land'?render():sRender()}
@@ -747,7 +808,7 @@ function kmBuild(){const G=window.mapboxgl||window.maplibregl;if(KM_MB)G.accessT
   map.addLayer({id:'deals',type:'circle',source:'deals',paint:{'circle-radius':['interpolate',['linear'],['zoom'],5,['match',['get','v'],'land',4,3.4],12,['match',['get','v'],'land',8,7]],'circle-color':['get','col'],'circle-stroke-color':'#0A0A0A','circle-stroke-width':1}},'deals-halo');
   map.on('mousemove','deals',e=>{map.getCanvas().style.cursor='pointer';const p=e.features[0].properties;map.setFilter('deals-halo',['==',['get','id'],p.id]);pop.setLngLat(e.features[0].geometry.coordinates).setHTML(`<div class="kph">${esc(p.n)}</div><div class="mpr"><span>${p.v==='land'?'Powered land':'Storage'}</span><b>${esc(p.k)}</b></div><div class="mpr"><span>Score</span><b class="mono">${esc(p.s)}</b></div><div class="kpf">Click to open</div>`).addTo(map)});
   map.on('mouseleave','deals',()=>{map.getCanvas().style.cursor='';pop.remove();map.setFilter('deals-halo',['==',['get','id'],''])});
-  map.on('click','deals',e=>{const p=e.features[0].properties;pop.remove();p.v==='land'?openSite(p.id):openStorage(p.id)});
+  map.on('click','deals',e=>{const p=e.features[0].properties;pop.remove();kmCard(p.v,p.id);map.setFilter('deals-halo',['==',['get','id'],p.id])});
   KM_M.ready=true;KM_MLY.forEach(k=>toggleLayer(k,true));drawMap()})}
 async function toggleLayer(k,on){const lg=$('ml-'+k);if(lg)lg.hidden=!on;const M=KM_M;if(!M||!M.ready)return;const map=M.map;
  if(on&&!M.added.has(k)){M.added.add(k);map.addSource('ly-'+k,{type:'geojson',data:KM_LBASE+k+'.geojson'});map.addLayer(Object.assign({id:'ly-'+k,source:'ly-'+k,layout:{visibility:'none'}},KM_GL[k]),'deals');
@@ -756,11 +817,11 @@ async function toggleLayer(k,on){const lg=$('ml-'+k);if(lg)lg.hidden=!on;const M
   map.on('error',e=>{if(e.sourceId==='ly-'+k&&lg&&!lg.querySelector('.err'))lg.insertAdjacentHTML('beforeend','<small class="err">Layer could not load.</small>')})}
  if(M.added.has(k))map.setLayoutProperty('ly-'+k,'visibility',on&&KM_MLY.has(k)?'visible':'none')}
 function kmSide(){const seg=(attr,opts,cur)=>`<div class="seg mseg">${opts.map(([k,l])=>`<button type="button" ${attr}="${k}" class="${cur===k?'on':''}" aria-pressed="${cur===k}">${l}</button>`).join('')}</div>`;
- return `<div class="msec"><div class="lbl mono">Deals</div>${seg('data-kshow',[['land','Land'],['storage','Storage'],['both','Both']],KM.show)}</div>
+ return `<div class="kpan kp-main"><div class="msec"><div class="lbl mono">Deals</div>${seg('data-kshow',[['land','Land'],['storage','Storage'],['both','Both']],KM.show)}</div>
  <details class="msec kmfd" id="kmFd"${innerWidth>760?' open':''}><summary class="lbl mono">Filters <span id="kmFn"></span></summary><div id="kmF">${kmFiltHtml()}</div></details>
- <div class="msec"><div class="lbl mono">Colour by</div>${seg('data-kby',kmViews(),KM.by)}<div class="mleg" id="kmLeg"></div><div class="mleg"><span><i class="dot" style="background:#9A9A9A;border:1.5px solid #000"></i>Land site</span><span><i class="dot" style="background:#9A9A9A;border:1.5px solid #fff"></i>Storage</span></div></div>
- <div class="msec"><div class="lbl mono">Layers</div>${KM_LYR.map(([k,l,src])=>`<label class="chk mly"><input type="checkbox" data-mly value="${k}"${KM_MLY.has(k)?' checked':''}><span class="lbl mono">${l}</span></label><div class="mleg sub" id="ml-${k}"${KM_MLY.has(k)?'':' hidden'}>${lyrLegend(k).map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')}<small>${src}</small></div>`).join('')}</div>
- <div class="msec"><span class="lbl mono" id="kmCount"></span></div>`}
+ <div class="msec"><span class="lbl mono" id="kmCount"></span></div></div><div class="kpan kp-leg"><div class="msec"><div class="lbl mono">Colour by</div>${seg('data-kby',kmViews(),KM.by)}<div class="mleg" id="kmLeg"></div><div class="mleg"><span><i class="dot" style="background:#9A9A9A;border:1.5px solid #000"></i>Land site</span><span><i class="dot" style="background:#9A9A9A;border:1.5px solid #fff"></i>Storage</span></div></div>
+ </div><div class="kp-lyr"><div class="lbl mono kp-lyrh">Layers</div><div class="kp-chips">${KM_LYR.map(([k,l,src])=>`<label class="chk mly kchip"><input type="checkbox" data-mly value="${k}"${KM_MLY.has(k)?' checked':''}><span class="lbl mono">${l.replace(/ \(AADT\)/,'')}</span></label>`).join('')}</div><div class="kp-lsub">${KM_LYR.map(([k,l,src])=>`<div class="mleg sub" id="ml-${k}"${KM_MLY.has(k)?'':' hidden'}>${lyrLegend(k).map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')}<small>${src}</small></div>`).join('')}</div>
+ </div><div class="kpan kp-card" id="kmCard" hidden></div>`}
 // map filter panel: proxies for the same list filters (Filters dialogs, stage bar, AI search stay in sync) plus a map-only storage traffic floor
 let KM_AADT=0;
 function kmFiltHtml(){const L=KM.show!=='storage',S=KM.show!=='land'&&ST;const num=(id,l,step,ph)=>`<label><span class="lbl mono">${l}</span><input class="inp" data-kf="${id}" type="number" inputmode="decimal" min="0" step="${step}" placeholder="${ph||'any'}"></label>`;
@@ -929,6 +990,21 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-cols]');co
  const r=b.getBoundingClientRect();m.style.left=(r.left+scrollX)+'px';m.style.top=(r.bottom+scrollY+4)+'px';document.body.appendChild(m);
  m.addEventListener('change',()=>{const v=[...m.querySelectorAll('[data-ck]:checked')].map(x=>x.dataset.ck);localStorage.setItem('edks_cols_'+t,JSON.stringify(v));colApply(t)})});
 colApply('tbl');colApply('sTbl');
+
+// ---- redesign 2: inline quick-filter chips (proxy the Filters drawer inputs), All stage button, map pin card
+function qcSync(){document.querySelectorAll('.qc[data-q]').forEach(b=>{const el=$(b.dataset.q);if(!el){b.hidden=true;return}const on=el.type==='checkbox'?el.checked:String(el.value)===b.dataset.qval;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)})}
+document.addEventListener('click',e=>{const q=e.target.closest('.qc[data-q]');if(q){const el=$(q.dataset.q);if(!el)return;if(el.type==='checkbox')el.checked=!el.checked;else{const on=String(el.value)===q.dataset.qval;if(el.tagName==='SELECT'&&on){el.value=([...el.options].find(o=>o.defaultSelected)||el.options[0]).value}else el.value=on?'':q.dataset.qval}
+  el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));qcSync();return}
+ const a=e.target.closest('[data-sall]');if(a){const v=a.dataset.sall;STF[v].clear();stfSave();v==='land'?render():sRender()}});
+document.addEventListener('input',()=>setTimeout(qcSync));document.addEventListener('change',()=>setTimeout(qcSync));
+{const _r=render,_s=sRender;render=function(){const x=_r.apply(this,arguments);qcSync();return x};sRender=function(){const x=_s.apply(this,arguments);qcSync();return x};setTimeout(qcSync,0)}
+function kmCard(v,id){const c=$('kmCard');if(!c)return;const o=objOf(v,id);if(!o){c.hidden=true;return}
+ const L=v==='land',bl=L?bestLine(o,69):null,st=stageOf(v,id);
+ const cell=(l,x)=>`<div><span class="lbl mono">${l}</span><b>${x==null||x===''?'—':x}</b></div>`;
+ const g=L?cell('Score',LS(v,o))+cell('Acres',fmt(o.acres,0))+cell('Line',bl?fmt(bl.mi)+' mi':''):cell('Score',LS(v,o))+cell('Size',sizeTxt(o))+cell('Traffic',(o.traffic||{}).aadt?fmt(o.traffic.aadt,0):'');
+ const sub=L&&bl?`${bl.kv} kV line ${fmt(bl.mi)} mi`:'';
+ c.innerHTML=`<div class="kch"><span class="lbl mono">${esc([o.county?o.county+' County':'',o.city].filter(Boolean).join(' · '))}</span><button type="button" class="close" data-kcx aria-label="Close">Close</button></div><h3>${esc(o.name||id)}</h3><div class="lbl mono kcs">${esc(stL(st))} · ${L?'Land':'Storage'}</div><div class="kcg">${g}</div>${sub?`<p class="kcsub">${esc(sub)}</p>`:''}<div class="kcb"><button type="button" class="btn pri" data-kopen>Open deal</button>${o.url?`<a class="btn" href="${esc(o.url)}" target="_blank" rel="noopener">Listing</a>`:''}</div>`;
+ c.hidden=false;c.querySelector('[data-kcx]').onclick=()=>{c.hidden=true;if(KM_M&&KM_M.ready)KM_M.map.setFilter('deals-halo',['==',['get','id'],''])};c.querySelector('[data-kopen]').onclick=()=>L?openSite(id):openStorage(id)}
 </script>
 </body>
 </html>
