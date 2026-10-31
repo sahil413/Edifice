@@ -791,19 +791,30 @@ function kmTone(map){const P=(id,k,v)=>{try{map.setPaintProperty(id,k,v)}catch(e
   else if(t==='fill-extrusion')map.setLayoutProperty(id,'visibility','none');
   else if(t==='line'){if(/admin|boundary/.test(sl)){P(id,'line-color','rgba(255,255,255,0.24)');P(id,'line-width',.6)}else if(/water|river|stream/.test(sl))P(id,'line-color','#161616');else P(id,'line-color',/motorway|trunk|primary/.test(id)?'#262626':'#1A1A1A')}
   else if(t==='symbol'&&l.layout&&l.layout['text-field']!=null){const place=/place|settlement|city|town|state/.test(sl);
-   if(!place&&!/road|highway|transportation/.test(sl)){map.setLayoutProperty(id,'visibility','none');return}
+   if((!place&&!/road|highway|transportation/.test(sl))||/country|continent/.test(sl)){map.setLayoutProperty(id,'visibility','none');return}
    P(id,'text-color',place?(/state/.test(sl)?'#6A6A6A':'#B5B3AE'):'#4A4A4A');P(id,'text-halo-color','#0A0A0A');P(id,'text-halo-width',1.2);P(id,'icon-opacity',0)}
   else if(t==='symbol'||t==='circle')map.setLayoutProperty(id,'visibility','none')})}
 function lyrPop(k,p){const r=(a,b)=>`<div class="mpr"><span>${a}</span><b>${esc(b==null||b===''||b==='null'?'—':String(b))}</b></div>`;
  return k==='lines'?r('Line',(p.kv>0?p.kv+' kV':p.c+' kV class'))+r('Owner',p.o)+r('From',p.a)+r('To',p.b):k==='gas'?r('Pipeline',p.t)+r('Operator',p.o):k==='subs'?r('Substation',p.n)+r('Operator',p.o)+r('Voltage',p.kv?p.kv+' kV':null):r('AADT',p.v!=null?fmt(+p.v,0):null)+r('Year',p.y)+r('Route',p.r)}
 function lyrLegend(k){return k==='lines'?[['#B5B3AE','345 kV'],['#7A7A7A','230–287 kV'],['#4A4A4A','100–161 kV']]:k==='gas'?[['#6F9E7D','Interstate / intrastate']]:k==='subs'?[['#9A9A9A','Substation (larger: 230+ kV)']]:[['#C9B98A','40k+'],['#9A9A9A','15k–40k'],['#5A5A5A','5k–15k'],['#333','Under 5k']]}
+const KS_BB=[[-102.06,36.99],[-94.59,40.0]];
+const KS_POLY=[[-102.0517,36.993],[-102.0517,40.0031],[-95.3083,40.0003],[-95.0786,39.8697],[-94.9532,39.8974],[-94.8818,39.7832],[-94.901,39.7302],[-95.0408,39.6648],[-94.9724,39.5428],[-94.8805,39.4413],[-94.6177,39.1149],[-94.6097,36.994],[-102.0517,36.993]];
+// lock the camera to Kansas: fit, then clamp zoom-out to just past the fit and panning to the fitted view plus a margin
+let KS_W=0;function ksMinZoom(map,force){const w=map.getContainer().clientWidth+'x'+map.getContainer().clientHeight;if(!force&&w===KS_W)return;KS_W=w;try{
+ map.setMaxBounds(null);map.setMinZoom(3);const ph=innerWidth<=760,H=map.getContainer().clientHeight;map.fitBounds(KS_BB,{padding:ph?{top:56,left:12,right:12,bottom:Math.round(H*.42)}:16,duration:0});const z=map.getZoom(),b=map.getBounds(),dx=(b.getEast()-b.getWest())*.25,dy=(b.getNorth()-b.getSouth())*.25;
+ map.setMinZoom(Math.max(3,z-0.25));map.setMaxBounds([[b.getWest()-dx,b.getSouth()-dy],[b.getEast()+dx,b.getNorth()+dy]])}catch(e){}}
 function kmBuild(){const G=window.mapboxgl||window.maplibregl;if(KM_MB)G.accessToken=KM_TOK;
- const map=new G.Map({container:'kmMap',style:KM_MB?'mapbox://styles/mapbox/dark-v11':'https://tiles.openfreemap.org/styles/dark',bounds:[[-102.06,36.99],[-94.58,40.01]],fitBoundsOptions:{padding:24},maxBounds:[[-106,34.5],[-90.5,42.5]],minZoom:5,attributionControl:true,dragRotate:false,pitchWithRotate:false,cooperativeGestures:false});
+ const map=new G.Map({container:'kmMap',style:KM_MB?'mapbox://styles/mapbox/dark-v11':'https://tiles.openfreemap.org/styles/dark',bounds:KS_BB,fitBoundsOptions:{padding:16},minZoom:3,attributionControl:true,dragRotate:false,pitchWithRotate:false,cooperativeGestures:false});
  map.addControl(new G.NavigationControl({showCompass:false}),'top-right');map.addControl(new G.ScaleControl({unit:'imperial'}),'bottom-left');
  const pop=new G.Popup({closeButton:false,closeOnClick:false,offset:10,className:'kmpop'}),info=new G.Popup({offset:6,className:'kmpop'});
  KM_M={map,G,ready:false,pop,info,added:new Set()};
  map.on('load',()=>{map.addSource('deals',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   kmTone(map);
+  map.addSource('ks-mask',{type:'geojson',data:{type:'Feature',geometry:{type:'Polygon',coordinates:[[[-180,-85],[180,-85],[180,85],[-180,85],[-180,-85]],KS_POLY.slice().reverse()]}}});
+  map.addLayer({id:'ks-mask',type:'fill',source:'ks-mask',paint:{'fill-color':'#050505','fill-opacity':0.88}});
+  map.addSource('ks-line',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:KS_POLY}}});
+  map.addLayer({id:'ks-line',type:'line',source:'ks-line',paint:{'line-color':'rgba(255,255,255,0.32)','line-width':1}});
+  ksMinZoom(map,true);map.on('resize',()=>ksMinZoom(map));
   map.addLayer({id:'deals-halo',type:'circle',source:'deals',filter:['==',['get','id'],''],paint:{'circle-radius':['interpolate',['linear'],['zoom'],5,8,12,14],'circle-color':'rgba(0,0,0,0)','circle-stroke-color':'#F14B21','circle-stroke-width':1.5}});
   map.addLayer({id:'deals',type:'circle',source:'deals',paint:{'circle-radius':['interpolate',['linear'],['zoom'],5,['match',['get','v'],'land',4,3.4],12,['match',['get','v'],'land',8,7]],'circle-color':['get','col'],'circle-stroke-color':'#0A0A0A','circle-stroke-width':1}},'deals-halo');
   map.on('mousemove','deals',e=>{map.getCanvas().style.cursor='pointer';const p=e.features[0].properties;map.setFilter('deals-halo',['==',['get','id'],p.id]);pop.setLngLat(e.features[0].geometry.coordinates).setHTML(`<div class="kph">${esc(p.n)}</div><div class="mpr"><span>${p.v==='land'?'Powered land':'Storage'}</span><b>${esc(p.k)}</b></div><div class="mpr"><span>Score</span><b class="mono">${esc(p.s)}</b></div><div class="kpf">Click to open</div>`).addTo(map)});
@@ -811,7 +822,7 @@ function kmBuild(){const G=window.mapboxgl||window.maplibregl;if(KM_MB)G.accessT
   map.on('click','deals',e=>{const p=e.features[0].properties;pop.remove();kmCard(p.v,p.id);map.setFilter('deals-halo',['==',['get','id'],p.id])});
   KM_M.ready=true;KM_MLY.forEach(k=>toggleLayer(k,true));drawMap()})}
 async function toggleLayer(k,on){const lg=$('ml-'+k);if(lg)lg.hidden=!on;const M=KM_M;if(!M||!M.ready)return;const map=M.map;
- if(on&&!M.added.has(k)){M.added.add(k);map.addSource('ly-'+k,{type:'geojson',data:KM_LBASE+k+'.geojson'});map.addLayer(Object.assign({id:'ly-'+k,source:'ly-'+k,layout:{visibility:'none'}},KM_GL[k]),'deals');
+ if(on&&!M.added.has(k)){M.added.add(k);map.addSource('ly-'+k,{type:'geojson',data:KM_LBASE+k+'.geojson'});map.addLayer(Object.assign({id:'ly-'+k,source:'ly-'+k,layout:{visibility:'none'}},KM_GL[k]),map.getLayer('ks-mask')?'ks-mask':'deals');
   map.on('click','ly-'+k,e=>{if(map.queryRenderedFeatures(e.point,{layers:['deals']}).length)return;M.info.setLngLat(e.lngLat).setHTML(lyrPop(k,e.features[0].properties)).addTo(map)});
   map.on('mouseenter','ly-'+k,()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','ly-'+k,()=>map.getCanvas().style.cursor='');
   map.on('error',e=>{if(e.sourceId==='ly-'+k&&lg&&!lg.querySelector('.err'))lg.insertAdjacentHTML('beforeend','<small class="err">Layer could not load.</small>')})}
