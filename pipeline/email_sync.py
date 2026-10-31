@@ -93,8 +93,19 @@ def deal_index(client):
     mine = set(senders(client))
     deals = {}
     for col, restricted in (("deals", False), ("rdeals", True)):
-        for d in client.collection(col).stream():
+        for d in client.collection(col).select(["stage"]).stream():
             deals[d.id] = {"restricted": restricted, "stage": (d.to_dict() or {}).get("stage", "New")}
+    # One collection-group query per event kind (~65 reads) instead of one query per deal (>=215 reads), and
+    # one batched get for the site docs instead of 216 sequential gets.
+    ev_text = defaultdict(list)
+    for grp in ("events", "revents"):
+        for e in client.collection_group(grp).select(["text"]).stream():
+            ev_text[(grp, e.reference.parent.parent.id)].append((e.to_dict() or {}).get("text") or "")
+    refs = [client.collection("rsites" if m["restricted"] else "sites").document(sid) for sid, m in deals.items()]
+    site_docs = {}
+    for i in range(0, len(refs), 100):
+        for s in client.get_all(refs[i:i + 100]):
+            site_docs[s.id] = s
     hints = defaultdict(list)
     for f in glob.glob(HINT_GLOB):
         try:
@@ -105,8 +116,8 @@ def deal_index(client):
     idx = {}
     for sid, meta in deals.items():
         restricted = meta["restricted"]
-        s = client.collection("rsites" if restricted else "sites").document(sid).get()
-        if not s.exists:
+        s = site_docs.get(sid)
+        if s is None or not s.exists:
             continue
         sd = s.to_dict() or {}
         j = sd.get("j") or {}
@@ -125,9 +136,7 @@ def deal_index(client):
         for t in _strings(j):
             emails.update(m.lower() for m in EMAIL_RE.findall(t))
         texts = list(hints.get(sid, []))
-        dref = client.collection("rdeals" if restricted else "deals").document(sid)
-        for e in dref.collection("revents" if restricted else "events").stream():
-            texts.append((e.to_dict() or {}).get("text") or "")
+        texts += ev_text.get(("revents" if restricted else "events", sid), [])
         subj = set()
         if any(t.lstrip().lower().startswith("reverted") for t in texts):
             texts = []   # a reverted mis-match: its event texts describe another deal's mail
@@ -161,13 +170,30 @@ def deal_index(client):
             x["emails"] -= {e for y in idx.values() if y["active"] for e in y["city_contacts"]}
     return idx
 
+IDX_CACHE = "_deal_index.json"
+IDX_MAX_AGE = 3 * 3600
+
+def deal_index_cached(client, d=None):
+    """deal_index once per run: queries/plan/ingest of one run share it via DIR/_deal_index.json (<3 h old)."""
+    path = os.path.join(d, IDX_CACHE) if d else None
+    if path and os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path)) < IDX_MAX_AGE:
+        raw = json.load(open(path))
+        return {sid: {k: set(v) if isinstance(v, list) else v for k, v in x.items()} for sid, x in raw.items()}
+    idx = deal_index(client)
+    if path and os.path.isdir(d):
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump({sid: {k: sorted(v) if isinstance(v, set) else v for k, v in x.items()} for sid, x in idx.items()}, f)
+        os.chmod(tmp, 0o600); os.replace(tmp, path)
+    return idx
+
 def cursor(client):
     s = client.collection("config").document("email_sync").get()
     return (s.to_dict() or {}) if s.exists else {}
 
 def cmd_queries(a):
     client = edks.db()
-    idx = deal_index(client)
+    idx = deal_index_cached(client, a.dir)
     cur = (cursor(client).get("accounts") or {})
     emails = sorted({e for x in idx.values() for e in x["emails"] - x["generic"]})
     subs = sorted({s for x in idx.values() for s in x["subjects"] | x["phrases"]})
@@ -261,7 +287,7 @@ def match(idx, mine, msgs):
 
 def cmd_plan(a):
     client = edks.db()
-    idx, mine = deal_index(client), senders(client)
+    idx, mine = deal_index_cached(client, a.dir), senders(client)
     msgs = read_dir(a.dir)
     m, amb = match(idx, mine, msgs)
     need = defaultdict(list)
@@ -273,18 +299,17 @@ def cmd_plan(a):
 
 def cmd_ingest(a):
     client = edks.db()
-    idx, mine = deal_index(client), senders(client)
+    idx, mine = deal_index_cached(client, a.dir), senders(client)
     msgs = read_dir(a.dir)
     m, amb = match(idx, mine, msgs)
     now = dt.datetime.now(dt.timezone.utc)
     per = defaultdict(lambda: {"new": 0, "seen": 0, "no_rfc": 0})
-    latest = {}
+    todo = []   # (sid, ref, item)
     for (acct, tid), (sid, why) in sorted(m.items()):
         col = client.collection("dealEmails").document(sid).collection("items")
         for mm in msgs[acct].values():
             if (mm.get("threadId") or mm["id"]) != tid:
                 continue
-            iid = f"{tid}_{mm['id']}"
             frm = parseaddr(mm.get("from") or "")[1].lower()
             item = {"site_id": sid, "date": utc(mm.get("date")).isoformat(), "account": acct, "from": mm.get("from") or "",
                     "to": mm.get("to") or "", "cc": mm.get("cc") or "", "subject": (mm.get("subject") or "")[:300],
@@ -292,43 +317,67 @@ def cmd_ingest(a):
                     "link": f"https://mail.google.com/mail/u/?authuser={acct}#all/{tid}", "thread_id": tid,
                     "message_id": mm["id"], "rfc_id": (mm.get("rfc_id") or "")[:300], "dir": "out" if frm in mine else "in",
                     "source": "sync", "matched_by": why}
-            if not item["rfc_id"]:
-                per[sid]["no_rfc"] += 1
-            ref = col.document(iid)
-            ex = ref.get()
-            if ex.exists:
-                per[sid]["seen"] += 1
-                old = ex.to_dict() or {}
-                patch = {k: v for k, v in item.items() if k in ("rfc_id", "cc", "excerpt", "matched_by") and v and not old.get(k)}
-                if patch and not a.dry_run:
-                    ref.set(patch, merge=True)
-            else:
-                per[sid]["new"] += 1
-                if not a.dry_run:
-                    ref.set(dict(item, created=now))
-            d = utc(mm.get("date"))
-            if acct not in latest or d > latest[acct]:
-                latest[acct] = d
-    touched = set(per)
+            todo.append((sid, col.document(f"{tid}_{mm['id']}"), item))
+    # One batched existence check (get_all) and one batched commit instead of a get + set per message.
+    have = {}
+    refs = [r for _, r, _ in todo]
+    for k in range(0, len(refs), 100):
+        for snap in client.get_all(refs[k:k + 100]):
+            have[snap.reference.path] = snap
+    writes, changed = [], set()
+    for sid, ref, item in todo:
+        if not item["rfc_id"]:
+            per[sid]["no_rfc"] += 1
+        ex = have.get(ref.path)
+        if ex is not None and ex.exists:
+            per[sid]["seen"] += 1
+            old = ex.to_dict() or {}
+            patch = {k: v for k, v in item.items() if k in ("rfc_id", "cc", "excerpt", "matched_by") and v and not old.get(k)}
+            if patch:
+                writes.append((ref, patch, True)); changed.add(sid)
+        else:
+            per[sid]["new"] += 1
+            writes.append((ref, dict(item, created=now), False)); changed.add(sid)
     if not a.dry_run:
-        for sid in touched:
+        for k in range(0, len(writes), 400):
+            b = client.batch()
+            for ref, data, merge in writes[k:k + 400]:
+                b.set(ref, data, merge=merge)
+            b.commit()
+        for sid in changed:      # unchanged deals keep their summary: no re-read of their items
             summarize(client, sid, now)
+        # Cursor: advance each searched account to the newest message this run saw in its search results
+        # (matched or not), so the next run's after: window starts here. It used to move only on matched mail,
+        # which left it days behind when nothing new matched.
+        seen = {}
+        for acct, ms in msgs.items():
+            for mm in ms.values():
+                try:
+                    d = utc(mm.get("date"))
+                except Exception:
+                    continue
+                if d <= now and (acct not in seen or d > seen[acct]):
+                    seen[acct] = d
         cur = cursor(client).get("accounts") or {}
         for acct in mine:
             prev = cur.get(acct, {}).get("last_date")
-            best = max([x for x in (latest.get(acct), utc(prev) if prev else None) if x], default=None)
-            cur[acct] = {"last_date": best.isoformat() if best else (prev or ""), "last_run": now.isoformat()}
+            best = max([x for x in (seen.get(acct), utc(prev) if prev else None) if x], default=None)
+            cur[acct] = {"last_date": best.isoformat() if best else (prev or ""), "last_run": now.isoformat(),
+                         "last_dir": os.path.basename(os.path.normpath(a.dir))}
         client.collection("config").document("email_sync").set({"accounts": cur, "updated": now})
-        try:
-            import learnings
-            learnings.recompute(client, quiet=True)
-        except Exception as ex:
-            print(f"[email_sync] WARNING: weights not refit ({type(ex).__name__})")
+        if changed:              # weights depend on deal emails only through new items; skip the refit otherwise
+            try:
+                import learnings
+                learnings.recompute(client, quiet=True)
+            except Exception as ex:
+                print(f"[email_sync] WARNING: weights not refit ({type(ex).__name__})")
     tot = {k: sum(v[k] for v in per.values()) for k in ("new", "seen", "no_rfc")}
     print(f"[email_sync] {'DRY RUN ' if a.dry_run else ''}threads={len(m)} ambiguous_skipped={amb} "
           f"new={tot['new']} already={tot['seen']} missing_message_id={tot['no_rfc']}")
     for sid in sorted(per):
         print(f"[email_sync]   {sid}\tnew={per[sid]['new']}\talready={per[sid]['seen']}")
+    if not a.dry_run:
+        print("[email_sync] cursor " + ", ".join(f"{k}={v['last_date']}" for k, v in sorted(cur.items())))
 
 def summarize(client, sid, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
@@ -358,7 +407,7 @@ def summarize(client, sid, now=None):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = p.add_subparsers(dest="cmd", required=True)
-    q = sp.add_parser("queries"); q.add_argument("--backfill-days", type=int, default=0)
+    q = sp.add_parser("queries"); q.add_argument("--backfill-days", type=int, default=0); q.add_argument("--dir", help="run dir: caches the deal index for plan/ingest")
     pl = sp.add_parser("plan"); pl.add_argument("--dir", required=True)
     i = sp.add_parser("ingest"); i.add_argument("--dir", required=True); i.add_argument("--dry-run", action="store_true")
     s = sp.add_parser("summarize"); s.add_argument("site_ids", nargs="*")

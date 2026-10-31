@@ -270,7 +270,7 @@ def recompute(client, force=False, quiet=False):
             answers[x.get("event_id") or d.id] = list(x["answer_reasons"])
     W = compute_weights(events, land, stor, answers)
     sig = hashlib.sha1(json.dumps({t: W[t]["deltas"] for t in W}, sort_keys=True).encode()).hexdigest()[:16]
-    ref = client.collection("learnings").document("weights"); old = ref.get().to_dict() if ref.get().exists else {}
+    ref = client.collection("learnings").document("weights"); snap = ref.get(); old = (snap.to_dict() or {}) if snap.exists else {}
     if old.get("sig") == sig and not force:
         if not quiet: print(f"[learnings] weights unchanged (v{old.get('version')}, n={old.get('n')})")
         return old
