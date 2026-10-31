@@ -923,7 +923,7 @@ body.gated .wrap{visibility:hidden}
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc, getDoc, getDocs, collection, collectionGroup, onSnapshot, query, where, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc, getDoc, getDocs, getDocsFromCache, documentId, Timestamp, collection, collectionGroup, onSnapshot, query, where, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 
 const CFG = {"apiKey": "AIzaSyDwDXGPGL_BlyctaSxGa5R893b8-EUDCAU", "authDomain": "dms-edvc.firebaseapp.com", "projectId": "dms-edvc", "appId": "1:312620064853:web:16adc349ed4806c6b0b4dc", "storageBucket": "dms-edvc.firebasestorage.app", "messagingSenderId": "312620064853"}, EMU = false;
 const CERT_LIST_URL = 'https://www.kansascommerce.gov/program/business-incentives-and-services/certified-sites-program/sites/';
@@ -1066,9 +1066,51 @@ function manRow(id, x, restricted) {
   return r;
 }
 
+// Read-saving loaders. The local cache (persistentLocalCache) keeps every doc this browser has seen; these read
+// from it and fetch only what changed, falling back to a full read when the cache is empty or stale.
+const FULL_EVERY = 7 * 864e5;
+const stamp = (k, v) => { try { if (v === undefined) return +localStorage.getItem('edks_full_' + k) || 0; localStorage.setItem('edks_full_' + k, String(v)); } catch (e) { return 0; } };
+// Sites: meta/sites_index holds {id: hash} for pipeline-owned docs (written by every push); only ids whose hash
+// differs from the cached copy are fetched. Manual sites come from their own small query. Same docs as a full read.
+async function loadSites() {
+  const full = () => getDocs(collection(db, 'sites')).then(q => { stamp('sites', Date.now()); return q.docs; });
+  if (EMU || Date.now() - stamp('sites') > FULL_EVERY) return full();
+  try {
+    const [ix, cached, man] = await Promise.all([getDoc(doc(db, 'meta', 'sites_index')), getDocsFromCache(collection(db, 'sites')), getDocs(query(collection(db, 'sites'), where('manual', '==', true)))]);
+    const H = ix.exists() && ix.data().h; if (!H || !cached.size) return full();
+    const have = new Map(); cached.forEach(d => { if (!d.data().manual) have.set(d.id, d); });
+    const need = Object.keys(H).filter(id => !have.has(id) || have.get(id).data().h !== H[id]);
+    for (let i = 0; i < need.length; i += 30) {
+      const q = await getDocs(query(collection(db, 'sites'), where(documentId(), 'in', need.slice(i, i + 30))));
+      q.forEach(d => have.set(d.id, d));
+    }
+    const out = Object.keys(H).map(id => have.get(id)).filter(d => d && d.data().h === H[id]);
+    if (out.length !== Object.keys(H).length) return full();
+    return out.concat(man.docs);
+  } catch (e) { console.warn('sites delta read failed, reading all', e); return full(); }
+}
+// Deals: every deal write sets `updated`, so after one full read a listener on `updated >= newest cached - 10 min`
+// delivers all later changes. The cached docs fill in the rest; a full read runs weekly (picks up deletes).
+async function dealsSource(col, cb, onErr) {
+  const fullListen = () => onSnapshot(collection(db, col), { includeMetadataChanges: true }, q => { if (!q.metadata.fromCache) stamp(col, Date.now()); cb(q, q.docs); }, onErr);
+  if (EMU || Date.now() - stamp(col) > FULL_EVERY) return fullListen();
+  let cached;
+  try { cached = await getDocsFromCache(collection(db, col)); } catch (e) { return fullListen(); }
+  if (!cached.size) return fullListen();
+  let max = 0; const base = new Map();
+  cached.forEach(d => { base.set(d.id, d); const u = d.data().updated; if (u && u.toMillis) max = Math.max(max, u.toMillis()); });
+  if (!max) return fullListen();
+  return onSnapshot(query(collection(db, col), where('updated', '>=', Timestamp.fromMillis(max - 6e5))), { includeMetadataChanges: true }, q => {
+    // Docs only ever enter this window (updated grows); a doc briefly leaving it during a local pending write keeps
+    // its last copy here until the server echo arrives. Deleted deals drop out at the weekly full read.
+    q.docs.forEach(d => base.set(d.id, d));
+    cb(q, [...base.values()]);
+  }, onErr);
+}
+
 async function boot(user, email, me0) {
   const admin0 = me0.role === 'admin';
-  const [sites, land, stor, eng, rs] = await Promise.all([getDocs(collection(db, 'sites')), blob('land'), blob('storage'), getDoc(doc(db, 'private', 'email_engine')),
+  const [sites, land, stor, eng, rs] = await Promise.all([loadSites(), blob('land'), blob('storage'), getDoc(doc(db, 'private', 'email_engine')),
     admin0 ? getDocs(collection(db, 'rsites')).catch(() => null) : Promise.resolve(null)]);
   if (!land) throw new Error('No site data has been pushed yet');
   const rows = { land: [], storage: [] }, RIDS = new Set();
@@ -1152,15 +1194,15 @@ async function boot(user, email, me0) {
     apply(null, null, users);
   }, fail);
   let dealsM = {}, dealsR = {}, evM = [], evR = [];
-  const dmap = q => { const o = {}; q.forEach(d => { const x = d.data(); o[(x.view || 'land') + '|' + d.id] = { stage: x.stage, updated: tsIso(x.updated) || new Date().toISOString() }; }); return o; };
+  const dmap = docs => { const o = {}; docs.forEach(d => { const x = d.data(); o[(x.view || 'land') + '|' + d.id] = { stage: x.stage, updated: tsIso(x.updated) || new Date().toISOString() }; }); return o; };
   const emap = q => q.docs.map(d => { const x = d.data(); return Object.assign({}, x, { event_id: d.id, site_id: x.site_id || d.ref.parent.parent.id, reasons: x.reasons || [] }); });
-  onSnapshot(collection(db, 'deals'), { includeMetadataChanges: true }, q => {
+  dealsSource('deals', (q, docs) => {
     pend.d = q.metadata.hasPendingWrites; cache = q.metadata.fromCache; if (!pend.d && !cache) lastOk = new Date();
-    dealsM = dmap(q); deals = Object.assign({}, dealsM, dealsR);
+    dealsM = dmap(docs); deals = Object.assign({}, dealsM, dealsR);
     apply(null, deals, null);
   }, fail);
   if (admin0) {
-    onSnapshot(collection(db, 'rdeals'), q => { dealsR = dmap(q); deals = Object.assign({}, dealsM, dealsR); apply(null, deals, null); }, fail);
+    onSnapshot(collection(db, 'rdeals'), q => { dealsR = dmap(q.docs); deals = Object.assign({}, dealsM, dealsR); apply(null, deals, null); }, fail);
     onSnapshot(collectionGroup(db, 'revents'), q => { evR = emap(q); events = evM.concat(evR); apply(events, null, null); }, fail);
   }
   // Learned weights (members read; the pipeline refits them) and, for admins, the email log + review queue.
