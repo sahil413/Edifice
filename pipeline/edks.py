@@ -244,6 +244,13 @@ def cmd_push(a):
     stale = [rid for rid, d in existing.items() if rid not in keep and d.get("view") in views and rid not in manual]
     for rid in stale:
         writes.append(("delete", client.collection("sites").document(rid), None))
+    # meta/sites_index: {id: h} of every pipeline-owned site doc, so the app can read only changed docs and serve
+    # the rest from its local cache (manual sites are excluded: the app reads those with their own query).
+    hidx = {rid: existing.get(rid, {}).get("h") for rid in keep}
+    for op, ref, data in writes:
+        if op == "set" and ref.parent.id == "sites":
+            hidx[ref.id] = data["h"]
+    writes.append(("set", client.collection("meta").document("sites_index"), {"h": hidx, "n": len(hidx), "updated": now_iso()}))
     _put_blob(client, "land", json.dumps(land, ensure_ascii=False, separators=(",", ":")), writes)
     if stor is not None:
         _put_blob(client, "storage", json.dumps(stor, ensure_ascii=False, separators=(",", ":")), writes)
@@ -283,7 +290,7 @@ def cmd_verify(a):
     client = db()
     roles = [((d.to_dict() or {}).get("role")) for d in client.collection("users").stream()]
     admins = roles.count("admin")
-    sites = sum(1 for _ in client.collection("sites").select([]).stream())
+    sites = client.collection("sites").count().get()[0][0].value   # aggregation: 1 read, not one per site
     meta = sorted(d.id for d in client.collection("meta").stream())
     print(f"[verify] users={len(roles)} admins={admins} sites={sites} meta={','.join(meta)}")
     ok = admins >= a.min_admins and sites > 0
@@ -625,7 +632,7 @@ def cmd_import(a):
         if d:
             d.reference.update({"status": r.get("status") or "open"})
     for sid, (_, st) in last_stage.items():
-        client.collection("deals").document(sid).set({"stage": st}, merge=True)
+        client.collection("deals").document(sid).set({"stage": st, "updated": dt.datetime.now(dt.timezone.utc)}, merge=True)
     if last_stage:
         _relearn(client)
     print(f"[edks] imported {n} events ({len(flips)} follow-up status changes, {len(last_stage)} deal stages)")
